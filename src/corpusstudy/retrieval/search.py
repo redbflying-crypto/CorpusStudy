@@ -103,6 +103,7 @@ class Search:
         self.con = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True, check_same_thread=False)
         self.use_drafts = settings.use_drafts if use_drafts is None else use_drafts
         bundle = load_bundle(knowledge_root or settings.knowledge_dir)
+        self.bundle = bundle
         self.usable = set(select(bundle, use_drafts=self.use_drafts))
         self.graph = build_graph(bundle)
         self.names = _concept_names(bundle, self.usable)
@@ -139,6 +140,10 @@ class Search:
         ).fetchall()
         ids = list(dict.fromkeys(r[0] for r in rows))
         return [i for i in ids if self._allowed(i, kind, q.works)][:limit]
+
+    def named_concepts(self, text: str, language: Language | None = None) -> list[str]:
+        """Usable concepts the text names by title or alias, longest name first."""
+        return [cid.split("#", 1)[0] for cid in self._concepts(self.analyse(text, language))]
 
     def _concepts(self, q: Query) -> list[str]:
         """The opening chunk of each concept the question names by title or alias, longest
@@ -333,15 +338,16 @@ class Search:
 
 
 def _concept_names(bundle, usable: set[str]) -> dict[Language, list[tuple[tuple[str, ...], str]]]:
-    """Stemmed titles and aliases of the usable concepts, per language. Names without a
+    """Stemmed titles, file names and aliases of the usable concepts, per language. Names without a
     content word of three or more letters ("Gn") are left out."""
     names: dict[Language, list[tuple[tuple[str, ...], str]]] = defaultdict(list)
     for c in bundle.concepts.values():
         if c.id not in usable or c.meta.type == "Reference":
             continue
         extra = c.meta.extra
+        slug = c.id.rsplit("/", 1)[-1].replace("-", " ")  # the OKF id names it too
         per_lang = {
-            Language.EN: [c.title, *(extra.get("aliases") or [])],
+            Language.EN: [c.title, slug, *(extra.get("aliases") or [])],
             Language.FR: [extra.get("title_fr") or "", *(extra.get("aliases_fr") or [])],
         }
         for lang, raw in per_lang.items():

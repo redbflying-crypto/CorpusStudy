@@ -22,11 +22,11 @@ A personal Bible study chatbot. It combines a curated Markdown knowledge layer (
 ## Architecture
 
 ```
-question ─► router ─┬─► lookup     (explicit reference → verse text)
-                    ├─► knowledge  (OKF v0.2 bundle: curated, reviewed concepts)
-                    ├─► rag        (hybrid search: SQLite FTS5 + vectors, rank fusion)
-                    ├─► hybrid     (knowledge + rag)
-                    └─► pastoral   (crisis / abuse: safety response first)
+question ─► router ─┬─► lookup     (only asks for a passage → verse text, no model call)
+                    ├─► knowledge  (names a reviewed OKF concept)
+                    ├─► rag        (hybrid search: SQLite FTS5, rank fusion; vectors later)
+                    ├─► hybrid     (a concept and a passage)
+                    └─► pastoral   (self-harm / abuse / despair: safety message first)
                           │
                           ▼
               generation (Anthropic API)
@@ -55,11 +55,12 @@ src/corpusstudy/
   ingest/          Phase 2  OSIS / USFM / CSV-JSON / CCEL parsers, alignment, pipeline
   indexing/        Phase 4  analysis (stemming, KJV archaisms), chunking, SQLite FTS5 index
   retrieval/       Phase 4  reference extraction, hybrid OKF-aware search, evaluation
-eval/              retrieval evaluation sets (tuned and held-out)
-  router/          Phase 6  question routing
-  generation/      Phase 6  prompt assembly and LLM calls
+  router/          Phase 6  question routing (deterministic rules)
+  generation/      Phase 6  evidence, prompts, Anthropic API call, answer pipeline;
+                   CLI `python -m corpusstudy.generation`
   validation/      Phase 6  citation and provenance validator
   api/             Phase 7  FastAPI /chat and the chat page
+eval/              retrieval evaluation sets (tuned and held-out)
 knowledge/         OKF v0.2 bundle (index.md, log.md, books, themes, people,
                    doctrines, events, references/sources); see docs/KNOWLEDGE_FORMAT.md
 data/              downloaded texts and processed corpus (git-ignored)
@@ -86,6 +87,8 @@ cp .env.example .env        # then set ANTHROPIC_API_KEY
 .venv/bin/python -m corpusstudy.indexing    # build the search index (indexes/, git-ignored)
 .venv/bin/python -m corpusstudy.retrieval search "Que dit Jean 3.16 ?"
 .venv/bin/python -m corpusstudy.retrieval eval
+.venv/bin/python -m corpusstudy.generation ask "What does Romans 5:1 teach?"
+.venv/bin/python -m corpusstudy.generation smoke   # live API check (needs the key)
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint, rebuilds the Bibles, fails if any committed table or bundle file changes, then runs the tests and `okf check` on every push and pull request.
@@ -167,6 +170,33 @@ The lists are combined with weighted reciprocal rank fusion, and Scripture, comm
 
 A held-out set (`eval/retrieval_holdout.yaml`, 12 questions written after tuning and never used to tune) scores gated recall@5 = 1.00 and MRR 0.85, so the tuning did not overfit. Modern paraphrases of KJV wording ("love is patient") are the known gap of keyword-only search; dense vectors would address them. Median latency is about 20 ms per question.
 
+## Answers (Phase 6)
+
+`python -m corpusstudy.generation ask "..."` runs the whole pipeline:
+
+1. **Router** (rules, testable offline):
+   - **Pastoral** is checked first. Words of self-harm, abuse or despair (English or French) put a safety message with crisis contacts at the top of the answer. The message is fixed text written in code, not generated, and it is shown even when the model is unavailable.
+   - **Lookup:** a question that only asks for a passage ("John 3:16", "Que dit Jean 3.16 ?") is answered from the Bible in the answer's translation, with no model call.
+   - **Knowledge, hybrid and RAG** depend on whether the question names a reviewed concept (by title, alias or file name) and whether it cites a passage.
+2. **Evidence:**
+   - The top 12 search results are passed to the model as evidence.
+   - Scripture is cited by reference. Commentary and knowledge items get markers such as `[E2]`.
+   - Knowledge items carry their review status.
+3. **Generation:**
+   - **Model and effort:** one Anthropic API call to `claude-opus-5-5`, with adaptive thinking at `CORPUS_LLM_EFFORT` (default `medium`).
+   - **Output and caching:** structured JSON output, and a cached system prompt that sets the Reformed framing. The prompt asks the model to label interpretation, note where traditions differ, and not invent sources.
+   - **Fallback:** server-side fallback (`fallbacks: "default"`) re-runs a request the model declines on safety grounds on Anthropic's recommended fallback model.
+4. **Citation validator:**
+   - Every reference must exist in the answer language's translation and numbering.
+   - Every quotation of three words or more must occur word for word in a source cited in its paragraph.
+   - Every `[E#]` marker must name a provided source.
+   - Every cited knowledge concept must still pass the OKF profile, so its footnotes resolve.
+   - A failing answer gets one repair round. If it still fails, it is not shown, and the retrieved passages are given instead.
+5. **Answer:**
+   - Markers are renumbered `[1]`, `[2]` in order of use.
+   - Each source is listed with its label and, for knowledge, its OKF trust tier.
+   - Scripture citations come back verified, and the answer records its route and outcome (answered, repaired, refused, lookup, safety or declined).
+
 ## Phases
 
 The full plan, including how the knowledge layer follows Google's Open Knowledge Format (OKF) v0.2, is in [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
@@ -179,7 +209,7 @@ The full plan, including how the knowledge layer follows Google's Open Knowledge
 | 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
 | 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted; awaiting your review |
-| 6 | Router, generation, citation and provenance validator | Claude | — |
+| 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | — |
 | 8 | Docker, local run | Shared | — |
 | 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |

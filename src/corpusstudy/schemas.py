@@ -313,7 +313,7 @@ class RetrievalResult(_Model):
 
 
 class Route(StrEnum):
-    """Which source(s) the router sends a question to (Phase 5)."""
+    """Which source(s) the router sends a question to (Phase 6)."""
 
     LOOKUP = "lookup"  # "What does John 3:16 say?"
     KNOWLEDGE = "knowledge"  # curated files: books, people, doctrines...
@@ -335,6 +335,8 @@ class SourceNote(_Model):
     source_type: SourceType
     label: str
     chunk_id: str | None = None
+    marker: int | None = Field(default=None, ge=1, description="Its [n] marker in the answer")
+    trust_tier: str | None = Field(default=None, description="Knowledge only: OKF trust tier")
 
     @field_validator("source_type")
     @classmethod
@@ -342,6 +344,17 @@ class SourceNote(_Model):
         if v == SourceType.SCRIPTURE:
             raise ValueError("Scripture is cited through Citation, not SourceNote")
         return v
+
+
+class Outcome(StrEnum):
+    """How an answer was produced."""
+
+    ANSWERED = "answered"  # generated and every citation verified
+    REPAIRED = "repaired"  # verified after one repair round
+    REFUSED = "refused"  # citations could not be verified: retrieved passages shown instead
+    LOOKUP = "lookup"  # passage text read from the Bible, no model call
+    SAFETY = "safety"  # pastoral safety response only (no model answer available)
+    DECLINED = "declined"  # the model declined the request
 
 
 class Answer(_Model):
@@ -354,6 +367,7 @@ class Answer(_Model):
     interpretive: bool = Field(
         default=False, description="True if the answer goes beyond what the text states"
     )
+    outcome: Outcome = Outcome.ANSWERED
 
     @model_validator(mode="after")
     def _citations_in_language(self) -> Self:

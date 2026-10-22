@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     ai_provider: str = Field(default="anthropic", validation_alias="AI_PROVIDER")
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
     llm_model: str = DEFAULT_MODEL
+    llm_effort: str = "medium"  # low | medium | high | xhigh | max
+    llm_max_tokens: int = 16000
 
     default_language: Language = Language.EN
     translations: dict[Language, Translation] = Field(
@@ -141,6 +143,13 @@ class Settings(BaseSettings):
     def _human_reviewer(cls, v: str) -> str:
         if not v.startswith("human:") or len(v) <= len("human:"):
             raise ValueError("reviewer must be an OKF human actor, e.g. human:dhnguyen")
+        return v
+
+    @field_validator("llm_effort")
+    @classmethod
+    def _effort(cls, v: str) -> str:
+        if v not in ("low", "medium", "high", "xhigh", "max"):
+            raise ValueError("llm_effort must be low, medium, high, xhigh or max")
         return v
 
     @field_validator("embeddings")

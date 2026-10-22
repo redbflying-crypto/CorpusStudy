@@ -115,9 +115,13 @@ def query_terms(text: str, language: Language) -> list[str]:
 
 
 _FR_HINTS = frozenset("le la les des du est et que qui une dans pour pas sur avec au aux "
-                      "selon dieu jésus christ seigneur éternel".split())  # fmt: skip
+                      "selon dieu jésus christ seigneur éternel je tu nous vous ils elles mon "
+                      "ma mes ton ta tes notre nos votre vos leur leurs ne n'en pourquoi "
+                      "comment quel quelle quels quelles cette ces suis sommes ai avons sont "
+                      "veux peux faut aussi".split())  # fmt: skip
 _EN_HINTS = frozenset("the and of to is that what does who which for with about god jesus "
-                      "christ lord".split())  # fmt: skip
+                      "christ lord i my you your how why when should can are was were he she "
+                      "they we our this his her".split())  # fmt: skip
 
 
 @lru_cache(maxsize=1)

@@ -208,6 +208,9 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
     - Answers that fail are repaired or refused.
   - **Answer object:** carries the citations, the sources and, for each knowledge concept used, its trust tier.
 - **Exit:** the validator's offline tests pass and a smoke test against the live API passes.
+- **Status:**
+  - The router, generation pipeline and validator are built. Their offline tests pass, including end-to-end runs through the real index with a stand-in for the model.
+  - The live smoke test (`python -m corpusstudy.generation smoke`) needs `ANTHROPIC_API_KEY`, which this build environment does not have.
 
 ### Phase 7: API, chat page and evaluation
 - **Claude:**
@@ -238,7 +241,7 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 | 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
 | 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted; awaiting your review |
-| 6 | Router, generation, citation and provenance validator | Claude | — |
+| 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | — |
 | 8 | Docker, local run | Shared | — |
 | 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
