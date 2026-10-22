@@ -245,6 +245,15 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 - **Claude:** a Dockerfile and docker-compose setup with the corpus and indexes in a volume and `.env` for secrets, plus a runbook covering rebuilding the corpus, re-indexing, reviewing concepts and updating the bundle.
 - **You:** run `docker compose up` on your machine.
 - **Exit:** the chat works locally from a clean checkout.
+- **Status:**
+  - **Built:** `Dockerfile`, `compose.yaml` (the app, plus an `okf` tools service for reviews) and `docs/RUNBOOK.md`. A start-up step (`corpusstudy.prepare`) imports commentary files from `imports/`, builds the corpus when needed, and rebuilds the index when it is stale.
+  - **Tested from a clean clone with real Docker:**
+    - the first start took about 30 seconds here: Bibles downloaded, both commentaries imported, index built, with Bible output byte-identical to the local build;
+    - the container turns healthy, and lookups, refusals and the 503 without a key all work;
+    - restarts are quick, an edit to `knowledge/` triggers a re-index, and the key in `.env` is read at runtime and never copied into the image;
+    - `okf verify` works through the tools service.
+  - **CI:** a new `docker` job builds, starts and queries the container on every push.
+  - **Left for you:** `docker compose up` on your own machine.
 
 ### Phase 9 (optional): Maintaining the knowledge base
 - **Claude:** when the bot finds a gap (a question with no good concept), it drafts a new OKF concept as `status: draft` on a branch for you to review, never auto-published. It also runs a periodic `okf check` with link and coverage reports, and adds `log.md` entries.
@@ -265,7 +274,7 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 | 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | 🟡 Built; offline targets met; awaiting your review of the expected answers and a live run |
 | 7b | Spec alignment: answer layout, translations, care rules, logging, new routes, 17 more concepts, evaluation | Claude, **you review** | 🟡 Built; offline targets met; 54 concepts await review |
-| 8 | Docker, local run | Shared | — |
+| 8 | Docker, local run | Shared | 🟡 Built and tested from a clean checkout; your `docker compose up` on your machine closes it |
 | 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
 
 ## Decisions (Phase 0 additions, settled)

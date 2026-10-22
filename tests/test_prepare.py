@@ -107,3 +107,5 @@ def test_docker_files_keep_secrets_out_and_the_page_local():
     assert service["env_file"] == [{"path": ".env", "required": False}]
     assert service["environment"]["CORPUS_DATA_DIR"] == "/app/data"
     assert Path(REPO_ROOT / "imports" / "README.md").exists()
+    tools = compose["services"]["okf"]  # review commands: knowledge mounted read-write
+    assert tools["profiles"] == ["tools"] and "./knowledge:/app/knowledge" in tools["volumes"]

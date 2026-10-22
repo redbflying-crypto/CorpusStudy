@@ -27,6 +27,23 @@ services:
       - ./imports:/app/imports:ro    # drop calcom.doc and mhcc.txt here
     restart: unless-stopped
 
+  # The knowledge-bundle commands (review, new concepts): knowledge/ mounted read-write.
+  #   docker compose run --rm okf verify doctrines/election
+  okf:
+    image: corpusstudy:local
+    profiles: [tools]
+    entrypoint: ["python", "-m", "corpusstudy.okf", "--bundle", "knowledge"]
+    command: ["check"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      CORPUS_DATA_DIR: /app/data
+      CORPUS_KNOWLEDGE_DIR: /app/knowledge
+    volumes:
+      - corpus-data:/app/data
+      - ./knowledge:/app/knowledge
+
 volumes:
   corpus-data:
   corpus-index:

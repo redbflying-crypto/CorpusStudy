@@ -82,7 +82,19 @@ The schemas enforce these rules from the start:
   - Every claim is footnoted to a `sources` entry that resolves to a real Bible passage or commentary excerpt.
   - Only concepts verified by a `human:` actor can be `stable`.
 
-## Setup
+## Run it with Docker
+
+```bash
+cp .env.example .env              # then set ANTHROPIC_API_KEY (optional for a first look)
+cp /path/to/calcom.doc /path/to/mhcc.txt imports/   # the commentaries (optional)
+docker compose up -d              # first start: downloads the Bibles, builds the index
+```
+
+Open <http://127.0.0.1:8000>. [`docs/RUNBOOK.md`](docs/RUNBOOK.md) covers everyday use,
+rebuilding the corpus, re-indexing, reviewing concepts (`docker compose run --rm okf verify
+doctrines/election`), updating the knowledge bundle and troubleshooting.
+
+## Setup (development)
 
 ```bash
 python3 -m venv .venv
@@ -283,7 +295,7 @@ The full plan, including how the knowledge layer follows Google's Open Knowledge
 | 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | 🟡 Built; offline targets met; awaiting your review of the expected answers and a live run |
 | 7b | Spec alignment: answer layout, translations, care rules, logging, new routes, 17 more concepts, evaluation | Claude, **you review** | 🟡 Built; offline targets met; 54 concepts await review |
-| 8 | Docker, local run | Shared | — |
+| 8 | Docker, local run | Shared | 🟡 Built and tested from a clean checkout; your `docker compose up` on your machine closes it |
 | 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
 
 ## License

@@ -28,7 +28,8 @@ USER app
 ENV CORPUS_API_HOST=0.0.0.0 \
     CORPUS_API_PORT=8000
 EXPOSE 8000
-# The first start downloads the Bibles and builds the index (a few minutes).
+# The first start downloads the Bibles and builds the index (a few minutes). The check
+# bypasses any HTTP(S)_PROXY settings: it talks to the container itself.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10m --retries=3 \
-    CMD python -c "import urllib.request as u, sys; sys.exit(u.urlopen('http://127.0.0.1:8000/health', timeout=4).status != 200)"
+    CMD python -c "import urllib.request as u, sys; o = u.build_opener(u.ProxyHandler({})); sys.exit(o.open('http://127.0.0.1:8000/health', timeout=4).status != 200)"
 CMD ["python", "-m", "corpusstudy.api", "--prepare"]
