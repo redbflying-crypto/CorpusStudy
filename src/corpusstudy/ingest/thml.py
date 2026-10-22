@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from corpusstudy.canon import BOOKS_BY_OSIS
+from corpusstudy.ingest.raw import Excerpt
 from corpusstudy.ingest.text import clean_text
 
 _HEADING = re.compile(r"<(h[1-6])[^>]*>(.*?)</\1>", re.S)
@@ -27,19 +27,6 @@ _PAGE = re.compile(r'<span class="pb">\s*\d+\s*</span>')
 _FOOTNOTE = re.compile(r"<a\b[^>]*(?:_ftn|MsoFootnoteReference)[^>]*>.*?</a>", re.S)
 _TAG = re.compile(r"<[^>]+>")
 _TRAILER = re.compile(r"(\s*\([^()]{0,60}\)\s*\.?|\s*\[\d+\]|\s*\.)+\s*$")
-
-
-@dataclass
-class Excerpt:
-    id: str
-    topic: tuple[str, ...]
-    refs: list[str] = field(default_factory=list)  # OSIS passages the excerpt comments on
-    mentions: list[str] = field(default_factory=list)  # other passages cited in the comment
-    paragraphs: list[str] = field(default_factory=list)
-
-    @property
-    def text(self) -> str:
-        return "\n\n".join(self.paragraphs)
 
 
 def _plain(fragment: str) -> str:

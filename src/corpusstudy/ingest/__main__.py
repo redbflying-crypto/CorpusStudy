@@ -64,6 +64,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{cr.source}: {cr.status.upper()}  excerpts={cr.excerpts}  with_refs={cr.with_refs}")
         for note in cr.corrected_refs:
             print(f"  corrected {note}")
+        if cr.extended_refs:
+            print(f"  extended {len(cr.extended_refs)} sections over uncovered verses")
         if cr.dropped_refs:
             print(f"  dropped {len(cr.dropped_refs)} invalid references: {cr.dropped_refs[:5]}")
         ok = ok and cr.status == "ok"

@@ -10,11 +10,13 @@ data/
     kjv/            # eng-kjv.osis.xml
     lsg1910/        # 66 USFM files
     calvin-lcc/     # calcom.doc, imported by hand (--import calvin-lcc FILE)
+    henry-concise/  # mhcc.txt, imported by hand (--import henry-concise FILE)
   processed/
     KJV.jsonl       # {"book","chapter","verse","text"} per line; verse 0 = psalm title
     LSG1910.jsonl
     commentary/
-      calvin-lcc.jsonl  # {"id","work","source","topic","refs","mentions","text"} per excerpt
+      calvin-lcc.jsonl     # {"id","work","source","topic","refs","mentions","text"} per excerpt
+      henry-concise.jsonl
     manifest.json   # sources, URLs, checksums, counts, repairs, corrections
 ```
 

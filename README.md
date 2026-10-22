@@ -97,15 +97,24 @@ CCEL (ccel.org) is not reachable from the build workspace, so commentary files a
 
 ```bash
 .venv/bin/python -m corpusstudy.ingest --import calvin-lcc path/to/calcom.doc
+.venv/bin/python -m corpusstudy.ingest --import henry-concise path/to/Matthew_Henry_Commentaries.txt
 ```
 
 | Source | Edition | Status |
 |---|---|---|
 | `calvin-lcc` | *Calvin: Commentaries*, selections arranged by subject, tr. J. Haroutunian, Library of Christian Classics XXIII (1958), CCEL ThML. CCEL lists it as public domain. | ✅ 250 excerpts (245 keyed to the passage they comment on), about 870k characters |
-| Matthew Henry, *Concise Commentary* | CCEL PDF | ⏳ Waiting for the file (the Drive copy is too large for the connector) |
+| `henry-concise` | *Matthew Henry's Concise Commentary*, the one-volume abridgement, from CCEL's PDF saved as plain text. The text is public domain; CCEL's PDF edition is free for non-commercial use. | ✅ 5,164 excerpts: 64 book introductions, 1,189 chapters, and section comments covering every KJV verse |
 | Treasury of Scripture Knowledge | — | ⏳ Not decided |
 
-Each excerpt starts with the verse Calvin comments on, quoted in italics with its reference. The excerpt is keyed to that passage (`refs`), and other passages it cites are kept as `mentions`. Only Calvin's own text is kept: the editor's introductions, footnotes and page numbers are dropped. The source has three wrong references; they are corrected in a reviewed table (`COMMENTARY_SOURCES[...].corrections`), and each correction is logged.
+**Matthew Henry.** The plain text keeps the PDF's page furniture. The parser removes page numbers, running headers and end-of-line hyphenation, then follows the book, chapter and section headings. It handles both layouts used in the book:
+- `Verses 3–5` headings after a "Chapter Outline".
+- Sections that open with their reference, such as `Ezek. 1:1-14 ...`.
+
+Each chapter outline becomes its own excerpt. In the source, 2 Kings and 2 Chronicles have no "Chapter 1" line, and the parser handles both cases. In 7 places a section heading is missing from the source, for example in John 3, where the 1–8 comment runs to verse 21. There the preceding section's range is extended, and each extension is logged. Two typos in the outline references are corrected.
+
+Cross-references use the old Online Bible abbreviations. "Jud" means Judges and "So" means Song of Solomon, which is the opposite of how the shared book table reads them, so each source can override abbreviations.
+
+**Calvin.** Each excerpt starts with the verse Calvin comments on, quoted in italics with its reference. The excerpt is keyed to that passage (`refs`), and other passages it cites are kept as `mentions`. Only Calvin's own text is kept: the editor's introductions, footnotes and page numbers are dropped. The source has three wrong references; they are corrected in a reviewed table (`COMMENTARY_SOURCES[...].corrections`), and each correction is logged.
 
 ## Phases
 
@@ -114,7 +123,7 @@ Each excerpt starts with the verse Calvin comments on, quoted in italics with it
 | 0 | Decisions, API key, repo | You | ✅ Done |
 | 1 | Skeleton, config, canon, schemas, tests | Claude | ✅ Done |
 | 2 | Ingest KJV and Louis Segond 1910 | Claude | ✅ Done |
-| 2b | Commentaries | Claude, from files you supply | 🟡 Calvin done; Matthew Henry and TSK pending |
+| 2b | Commentaries | Claude, from files you supply | ✅ Calvin and Matthew Henry done; TSK not decided |
 | 3 | Chunking, keyword and vector indexes, hybrid retrieval | Claude | — |
 | 4 | Knowledge files (about 36) | Claude drafts, you review | — |
 | 5 | Router, generation, citation validator | Claude | — |

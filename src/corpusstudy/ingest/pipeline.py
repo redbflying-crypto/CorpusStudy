@@ -251,6 +251,7 @@ def run(
                     "excerpts": cr.excerpts,
                     "with_refs": cr.with_refs,
                     "corrected_refs": cr.corrected_refs,
+                    "extended_refs": cr.extended_refs,
                     "dropped_refs": cr.dropped_refs,
                     "output": f"commentary/{source.id}.jsonl",
                 }
