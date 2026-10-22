@@ -82,6 +82,14 @@ class Settings(BaseSettings):
 
     stance: Stance = Stance.REFORMED
     show_other_views: bool = True
+
+    # Knowledge bundle (OKF). Answers use human-reviewed concepts only unless use_drafts.
+    reviewer: str = "human:dhnguyen"
+    drafter: str = "corpusstudy/drafter-1"
+    use_drafts: bool = False
+
+    # Retrieval: "none" = keyword (FTS5) only for now; dense vectors can be added later.
+    embeddings: str = "none"
     allowed_commentaries: list[str] = Field(default_factory=lambda: list(ALLOWED_COMMENTARIES))
 
     data_dir: Path = REPO_ROOT / "data"
@@ -126,6 +134,20 @@ class Settings(BaseSettings):
         unknown = set(v) - set(ALLOWED_COMMENTARIES)
         if unknown:
             raise ValueError(f"not an approved public-domain commentary: {sorted(unknown)}")
+        return v
+
+    @field_validator("reviewer")
+    @classmethod
+    def _human_reviewer(cls, v: str) -> str:
+        if not v.startswith("human:") or len(v) <= len("human:"):
+            raise ValueError("reviewer must be an OKF human actor, e.g. human:dhnguyen")
+        return v
+
+    @field_validator("embeddings")
+    @classmethod
+    def _embeddings(cls, v: str) -> str:
+        if v not in ("none", "voyage", "local"):
+            raise ValueError("embeddings must be none, voyage or local")
         return v
 
     @field_validator("data_dir", "knowledge_dir", "index_dir")

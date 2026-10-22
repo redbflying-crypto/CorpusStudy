@@ -74,7 +74,7 @@ class Bundle:
         ]
 
 
-def _parse_meta(raw: dict[str, Any], rel: str, issues: list[Issue]) -> OkfFrontmatter | None:
+def parse_meta(raw: dict[str, Any], rel: str, issues: list[Issue]) -> OkfFrontmatter | None:
     data = dict(raw)
     for _ in range(len(data) + 1):
         try:
@@ -141,7 +141,7 @@ def load_bundle(root: str | Path) -> Bundle:
         if raw is None:
             bundle.issues.append(Issue(rel, "error", "concept has no YAML frontmatter"))
             continue
-        meta = _parse_meta(raw, rel, bundle.issues)
+        meta = parse_meta(raw, rel, bundle.issues)
         if meta is None:
             bundle.issues.append(Issue(rel, "error", "frontmatter has no non-empty `type`"))
             continue

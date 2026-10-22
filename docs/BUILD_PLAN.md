@@ -120,10 +120,10 @@ Justification is God's legal declaration ...[^henry-rom3]
 Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your sign-off needed before moving on.
 
 ### Phase 0: Decisions
-- **Status:** done, plus five new questions for OKF (listed at the end of this file).
+- **Status:** done, including the five OKF decisions (listed at the end of this file).
 - **You:**
   - Settled: translations (KJV, LSG 1910), stance (Reformed), commentaries (public domain), hosting (local Docker), API key, repo.
-  - New: your reviewer id, the review channel, draft visibility, the embeddings route, and the Treasury of Scripture Knowledge.
+  - Also settled: the reviewer id, the review channel, draft visibility, the embeddings route and the Treasury of Scripture Knowledge (see the end of this file).
 
 ### Phase 1: Skeleton, config, canon and schemas
 - **Status:** done, and aligned with OKF.
@@ -148,12 +148,15 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 - **Louis Segond 1910:** 31,170 verses, with the KJV↔LSG verse map.
 - **Calvin:** 250 excerpts (LCC XXIII).
 - **Matthew Henry:** 5,164 excerpts (*Concise Commentary*), covering every KJV verse.
-- **Pending:** the Treasury of Scripture Knowledge, waiting on your licence decision (only a CC BY 4.0 edition is reachable).
+- **Skipped:** the Treasury of Scripture Knowledge, because only a CC BY 4.0 edition is reachable and the corpus stays public domain.
 
 ### Phase 3: OKF bundle foundation
-- **Status:** mostly done.
-  - **Done:** the loader, OKF conformance checks, producer profile, `index.md` and `log.md` generation, the source references, the `python -m corpusstudy.okf check|index|references` commands, and the restructured `knowledge/` bundle.
-  - **Remaining:** the `verify` command (your sign-off stamp), a concept link graph for retrieval, and a `log` command.
+- **Status:** done.
+  - **Bundle and checks:** the loader, OKF conformance checks, producer profile, `index.md` and `log.md` generation, the source references, and the restructured `knowledge/` bundle.
+  - **Lifecycle commands:** `new` (a draft skeleton per type), `touch`, `verify` (the human gate) and `deprecate`, each logged.
+  - **Concept graph:** links, backlinks, cited sources, orphans and broken links, with expansion by one or more hops. Trust-aware selection (`usable`/`select`) means answers draw only on human-reviewed, stable, non-stale concepts.
+  - **CLI:** `python -m corpusstudy.okf check|index|references|graph|new|touch|verify|deprecate|log`.
+  - **CI:** lint, a corpus rebuild with a drift check, the tests, and `okf check` on every push and pull request.
 - **Claude:**
   - `corpusstudy/okf/`: a loader (frontmatter, body, Markdown links, footnotes), a graph of concept links, and trust-tier and staleness helpers.
   - Generators for `index.md` (per directory, with descriptions from frontmatter) and `log.md` (dated entries).
@@ -229,21 +232,21 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 
 | Phase | Scope | Who | Status |
 |---|---|---|---|
-| 0 | Decisions | You | ✅ Done; 5 new OKF questions open |
+| 0 | Decisions | You | ✅ Done, including the OKF review decisions |
 | 1 | Skeleton, config, canon, schemas | Claude | ✅ Done, OKF-aligned |
-| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references; TSK pending |
-| 3 | OKF bundle foundation: loader, validator, index/log, CLI, references | Claude | 🟡 Mostly done; `verify` stamp and link graph remain |
-| 4 | Chunking, FTS5 + vectors, hybrid and OKF-aware retrieval | Claude | — |
+| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references (TSK skipped) |
+| 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
+| 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval | Claude | Next |
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | — |
 | 6 | Router, generation, citation and provenance validator | Claude | — |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | — |
 | 8 | Docker, local run | Shared | — |
 | 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
 
-## Open decisions (Phase 0 additions)
+## Decisions (Phase 0 additions, settled)
 
-1. **Reviewer id:** your OKF actor id, e.g. `human:dhnguyen`.
-2. **Review channel:** GitHub pull requests, or approval in chat.
-3. **Drafts in answers:** human-reviewed concepts only (recommended), or drafts too, labelled "unreviewed".
-4. **Embeddings:** (a) Voyage AI API key, (b) allow Hugging Face for a local model, or (c) keyword-only first.
-5. **Treasury of Scripture Knowledge:** accept the CC BY 4.0 edition (credit required), or skip it.
+1. **Reviewer id:** `human:dhnguyen` (`CORPUS_REVIEWER`).
+2. **Review channel:** GitHub pull requests, checked by CI; approval in chat as a fallback.
+3. **Drafts in answers:** no. Only human-reviewed, stable concepts are used (`CORPUS_USE_DRAFTS=false`).
+4. **Embeddings:** keyword search (FTS5) first (`CORPUS_EMBEDDINGS=none`); a Voyage AI key or a local model can be added later.
+5. **Treasury of Scripture Knowledge:** skipped, keeping the corpus strictly public domain.

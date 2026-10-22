@@ -9,11 +9,15 @@ A personal Bible study chatbot. It combines a curated Markdown knowledge layer (
 | LLM provider | Anthropic (`AI_PROVIDER=anthropic`). The key lives only in the git-ignored `.env` file. |
 | Translations | **KJV** for English and **Louis Segond 1910** for French. Both are public domain. |
 | Language | Answers come in the user's language and quote the matching translation. |
-| Commentaries | Public domain only: Calvin's Commentaries, Matthew Henry, and the Treasury of Scripture Knowledge for cross-references. |
+| Commentaries | Public domain only: Calvin's Commentaries and Matthew Henry. The Treasury of Scripture Knowledge is skipped, because the only reachable edition is CC BY 4.0, not public domain. |
 | Stance | Protestant Evangelical, Reformed (Calvinist). Interpretive answers are labelled as the Reformed view. Where it matters, the answer briefly notes how other traditions differ, so tradition is never presented as Scripture. |
 | Audience | Personal use. |
 | Hosting | Local, with Docker. |
 | Knowledge format | Google Open Knowledge Format (OKF) v0.2: a curated, version-controlled bundle of Markdown concepts with YAML frontmatter, provenance and human review. See [`docs/KNOWLEDGE_FORMAT.md`](docs/KNOWLEDGE_FORMAT.md). |
+| Reviewer | `human:dhnguyen` (`CORPUS_REVIEWER`). Only a `human:` actor can sign off a concept. |
+| Review channel | GitHub pull requests, which CI checks; approval in chat as a fallback. |
+| Drafts in answers | No. Answers use human-reviewed, stable concepts only (`CORPUS_USE_DRAFTS=false`). |
+| Embeddings | Keyword search (SQLite FTS5) first (`CORPUS_EMBEDDINGS=none`); dense vectors can be added later. |
 
 ## Architecture
 
@@ -80,6 +84,8 @@ cp .env.example .env        # then set ANTHROPIC_API_KEY
 .venv/bin/python -m corpusstudy.okf check   # knowledge bundle: OKF conformance + profile
 ```
 
+CI (`.github/workflows/ci.yml`) runs lint, rebuilds the Bibles, fails if any committed table or bundle file changes, then runs the tests and `okf check` on every push and pull request.
+
 ## Bible texts (Phase 2)
 
 ```bash
@@ -113,7 +119,7 @@ CCEL (ccel.org) is not reachable from the build workspace, so commentary files a
 |---|---|---|
 | `calvin-lcc` | *Calvin: Commentaries*, selections arranged by subject, tr. J. Haroutunian, Library of Christian Classics XXIII (1958), CCEL ThML. CCEL lists it as public domain. | ✅ 250 excerpts (245 keyed to the passage they comment on), about 870k characters |
 | `henry-concise` | *Matthew Henry's Concise Commentary*, the one-volume abridgement, from CCEL's PDF saved as plain text. The text is public domain; CCEL's PDF edition is free for non-commercial use. | ✅ 5,164 excerpts: 64 book introductions, 1,189 chapters, and section comments covering every KJV verse |
-| Treasury of Scripture Knowledge | — | ⏳ Not decided |
+| Treasury of Scripture Knowledge | — | Skipped (only a CC BY 4.0 edition is reachable) |
 
 **Matthew Henry.** The plain text keeps the PDF's page furniture. The parser removes page numbers, running headers and end-of-line hyphenation, then follows the book, chapter and section headings. It handles both layouts used in the book:
 - `Verses 3–5` headings after a "Chapter Outline".
@@ -131,11 +137,11 @@ The full plan, including how the knowledge layer follows Google's Open Knowledge
 
 | Phase | Scope | Who | Status |
 |---|---|---|---|
-| 0 | Decisions | You | ✅ Done; 5 new OKF questions |
+| 0 | Decisions | You | ✅ Done, including the OKF review decisions |
 | 1 | Skeleton, config, canon, schemas | Claude | ✅ Done, OKF-aligned |
-| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references; TSK pending |
-| 3 | OKF bundle foundation: loader, validator, index/log, CLI, references | Claude | 🟡 Mostly done; `verify` stamp and link graph remain |
-| 4 | Chunking, FTS5 + vectors, hybrid and OKF-aware retrieval | Claude | — |
+| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references (TSK skipped) |
+| 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
+| 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval | Claude | Next |
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | — |
 | 6 | Router, generation, citation and provenance validator | Claude | — |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | — |

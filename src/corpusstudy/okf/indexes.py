@@ -45,7 +45,9 @@ def render_index(bundle: Bundle, directory: Path) -> str:
         title, desc = _section(sub_rel)
         lines.append(f"* [{title}]({sub.name}/)" + (f" - {desc}" if desc else ""))
     for c in concepts:
-        desc = c.meta.description
+        desc = c.meta.description or ""
+        if c.meta.status != "stable":  # flag drafts and deprecated concepts for reviewers
+            desc = f"{desc} ({c.meta.status})".strip()
         lines.append(f"* [{c.title}]({c.path.name})" + (f" - {desc}" if desc else ""))
     if not subdirs and not concepts:
         lines.append("_No concepts yet._")

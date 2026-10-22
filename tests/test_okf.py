@@ -351,10 +351,15 @@ def test_documented_anchor_examples_resolve_against_the_corpus():
         for source, anchor in re.findall(r"/references/sources/([\w-]+)\.md#([\w.\-]+)", text):
             found.add((source, anchor))
     assert found
+    checked = 0
     for source, anchor in found:
         if source in ("kjv", "lsg1910"):
             from corpusstudy.schemas import PassageRef
 
             PassageRef.from_osis(anchor)
+        elif (store := commentary(source)) is not None:  # hand-imported; absent in CI
+            assert store.get(anchor) is not None, f"{source}#{anchor}"
         else:
-            assert commentary(source).get(anchor) is not None, f"{source}#{anchor}"
+            continue
+        checked += 1
+    assert checked

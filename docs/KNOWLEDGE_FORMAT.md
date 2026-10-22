@@ -3,11 +3,18 @@
 `knowledge/` is a knowledge bundle in **Google's Open Knowledge Format (OKF) v0.2** ([spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)). It is curated, kept in git, and readable by any OKF consumer. This page describes the OKF features we use and the stricter rules we apply to our own concepts (the *producer profile*).
 
 ```bash
-.venv/bin/python -m corpusstudy.okf check         # OKF conformance + producer profile
-.venv/bin/python -m corpusstudy.okf check --no-profile   # OKF conformance only
-.venv/bin/python -m corpusstudy.okf index         # regenerate every index.md
-.venv/bin/python -m corpusstudy.okf references    # regenerate references/sources from the manifest
+okf="python -m corpusstudy.okf"
+$okf check [--no-profile]           # OKF conformance (+ producer profile); exit 1 on errors
+$okf new Doctrine justification "Justification by Faith"   # draft skeleton for a type
+$okf touch doctrines/justification  # record an edit: new `generated`, back to draft
+$okf verify doctrines/justification # your sign-off: verified by human:dhnguyen, status stable
+$okf deprecate doctrines/old --reason "merged into doctrines/salvation"
+$okf graph                          # links, backlinks, orphans, broken links, usable concepts
+$okf log "Reorganised themes"       # free-form log.md entry
+$okf index | references             # regenerate index.md files / source references
 ```
+
+Each lifecycle command adds an entry to `log.md` and refreshes the `index.md` files.
 
 ## Bundle layout
 
@@ -74,6 +81,13 @@ Each `sources` entry points into `/references/sources/`. That keeps every cited 
 Each claim is credited with a Markdown footnote whose label is a `sources` id (OKF section 5.1). The profile checks that every footnote has a source, that every anchor resolves to a real passage or excerpt, and warns about sources that are never cited.
 
 ## Trust and review
+
+### Review workflow
+
+1. **Draft.** Claude drafts a concept on a branch with `okf new`, writes it, and then runs `okf check` until the producer profile passes. The concept stays `status: draft`, `generated` by `corpusstudy/drafter-1`.
+2. **Pull request.** Claude opens a pull request. CI runs the tests and `okf check`, and the index marks the concept "(draft)".
+3. **Your review.** You read the concept in the pull request. When you approve it, `okf verify <concept>` runs as you (`human:dhnguyen`). The command refuses any concept that would fail the profile once stamped, and refuses any actor that isn't `human:`. It appends `verified: { by: human:dhnguyen, at: ... }`, sets `status: stable` and logs a **Review** entry. Then the pull request is merged.
+4. **Later edits.** Any later edit runs `okf touch`, which sends the concept back to `draft` until it is reviewed again. Its earlier `verified` entries stay as history. A concept that is still `stable` but has a `generated.at` newer than its last review fails the profile.
 
 | Field | Meaning |
 |---|---|
