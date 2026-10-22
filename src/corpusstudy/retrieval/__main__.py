@@ -1,7 +1,11 @@
-"""CLI: python -m corpusstudy.retrieval {search QUERY | eval [--cases FILE]} [-k N] [--lang en|fr]
+"""CLI: python -m corpusstudy.retrieval {search QUERY | show ID | eval [--cases FILE]}
 
 search   show the fused results for a question, with the lists that found each one
+show     print a source in full: a commentary excerpt (henry-concise:Rom.3.21-Rom.3.26,
+         calvin-lcc:vi-p90) or a Bible passage (KJV:Rom.3.21-Rom.3.26, LSG1910:Ps.51.3)
 eval     recall@1/5/10 and MRR on eval/retrieval.yaml, per category
+
+Options: -k N, --lang en|fr, --drafts (include unreviewed concepts).
 """
 
 from __future__ import annotations
@@ -10,7 +14,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from corpusstudy.config import Language
+from corpusstudy.commentary import commentary
+from corpusstudy.config import Language, Translation
+from corpusstudy.corpus import bible
 from corpusstudy.retrieval.evaluation import (
     EVAL_PATH,
     UNGATED,
@@ -19,6 +25,24 @@ from corpusstudy.retrieval.evaluation import (
     summarise,
 )
 from corpusstudy.retrieval.search import Search
+from corpusstudy.schemas import PassageRef
+
+
+def _show(source_id: str) -> int:
+    prefix, _, local = source_id.partition(":")
+    if prefix in {t.value for t in Translation}:
+        passage = PassageRef.from_osis(local)
+        for v in bible(Translation(prefix)).passage(passage):
+            print(f"[{v.ref.chapter}:{v.ref.verse}] {v.text}")
+        return 0
+    store = commentary(prefix)
+    excerpt = store.get(local) if store else None
+    if excerpt is None:
+        print(f"not found: {source_id}", file=sys.stderr)
+        return 1
+    print(f"{excerpt.id}  refs={list(excerpt.refs)}  topic={' / '.join(excerpt.topic)}")
+    print(excerpt.text)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -27,13 +51,15 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("command", choices=["search", "eval"])
+    parser.add_argument("command", choices=["search", "show", "eval"])
     parser.add_argument("query", nargs="?")
     parser.add_argument("-k", type=int, default=10)
     parser.add_argument("--lang", choices=["en", "fr"])
     parser.add_argument("--drafts", action="store_true", help="include unreviewed concepts")
     parser.add_argument("--cases", type=Path, default=EVAL_PATH, help="evaluation file")
     args = parser.parse_args(argv)
+    if args.command == "show":
+        return _show(args.query or "")
     search = Search(use_drafts=True if args.drafts else None)
 
     if args.command == "search":

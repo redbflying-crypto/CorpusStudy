@@ -1,14 +1,14 @@
 """Phase 3: concept lifecycle (new/touch/verify/deprecate/log), the concept graph,
 trust-aware selection, the CLI, and the review settings."""
 
-import shutil
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
+from conftest import copy_bundle_skeleton
 from pydantic import ValidationError
 
-from corpusstudy.config import Settings, get_settings
+from corpusstudy.config import Settings
 from corpusstudy.okf import document, lifecycle
 from corpusstudy.okf.__main__ import main
 from corpusstudy.okf.bundle import load_bundle
@@ -30,7 +30,7 @@ def root(tmp_path, monkeypatch):
     fake = SimpleNamespace(get=lambda local: object() if local == "Rom.3.21-Rom.3.26" else None)
     monkeypatch.setattr("corpusstudy.okf.profile.commentary", lambda source: fake)
     dest = tmp_path / "knowledge"
-    shutil.copytree(get_settings().knowledge_dir, dest)
+    copy_bundle_skeleton(dest)
     return dest
 
 

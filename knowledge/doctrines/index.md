@@ -1,3 +1,3 @@
 # Doctrines
 
-_No concepts yet._
+* [Justification by Faith](justification.md) - (draft)

@@ -12,6 +12,7 @@ Rules
 - Knowledge concepts: `title_fr`, valid `key_passages`, `tradition`.
 - Provenance: every `sources` entry has an `id` and points at `/references/sources/...`
   with a resolvable anchor; every footnote matches a `sources` id and vice versa.
+- Every quotation occurs in a source its footnote cites (`okf.quotes`).
 - Standard markdown links only: no `[[wikilinks]]`.
 """
 
@@ -168,6 +169,12 @@ def check_concept(c: Concept, bundle: Bundle) -> list[Issue]:
             out.append(_warn(c, f"source `{sid}` is never cited by a footnote"))
     if kind in KNOWLEDGE_TYPES and not ids:
         out.append(_err(c, "a knowledge concept needs at least one source"))
+
+    # Quotations must be found in the source their footnote cites.
+    if kind in KNOWLEDGE_TYPES:
+        from corpusstudy.okf.quotes import check_quotes
+
+        out.extend(check_quotes(c))
 
     # Links (OKF section 6).
     if document.wikilinks(c.body):

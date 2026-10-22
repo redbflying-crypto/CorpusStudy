@@ -1,12 +1,12 @@
 """Phase 4: analysis, reference extraction, chunking, the index, OKF-aware search, and the
 evaluation gates (the last ones run only when the real index is built)."""
 
-import shutil
 from types import SimpleNamespace
 
 import pytest
+from conftest import copy_bundle_skeleton
 
-from corpusstudy.config import Language, Translation, get_settings
+from corpusstudy.config import Language, Translation
 from corpusstudy.indexing.analysis import detect_language, query_terms, stems
 from corpusstudy.indexing.chunking import _split, bible_chunks, commentary_chunks, knowledge_chunks
 from corpusstudy.indexing.store import index_path, read_info, write_index
@@ -149,7 +149,7 @@ def world(tmp_path, monkeypatch):
     """A tiny index: a few verses, two commentaries, and an OKF bundle with one reviewed
     concept linked to a reviewed neighbour, plus an unreviewed draft."""
     root = tmp_path / "knowledge"
-    shutil.copytree(get_settings().knowledge_dir, root)
+    copy_bundle_skeleton(root)
     make_concept(root, "Doctrine", "justification", "Justification",
                  "Sinners are declared righteous by faith.", links=("doctrines/faith",),
                  reviewed=True, fr="La justification")  # fmt: skip
