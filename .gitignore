@@ -8,6 +8,10 @@ data/*
 !data/README.md
 indexes/
 
+# Hand-downloaded commentary files (imports/README.md)
+imports/*
+!imports/README.md
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,0 +1,32 @@
+# docker compose up -d   then open http://127.0.0.1:8000   (docs/RUNBOOK.md)
+name: corpusstudy
+
+services:
+  corpusstudy:
+    build: .
+    image: corpusstudy:local
+    # Your API key and settings: .env next to this file (optional; see .env.example).
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Paths and the listening address inside the container (these win over .env).
+      CORPUS_API_HOST: 0.0.0.0
+      CORPUS_API_PORT: "8000"
+      CORPUS_DATA_DIR: /app/data
+      CORPUS_INDEX_DIR: /app/indexes
+      CORPUS_KNOWLEDGE_DIR: /app/knowledge
+      CORPUS_IMPORTS_DIR: /app/imports
+    ports:
+      # Only this computer can reach the chat page.
+      - "127.0.0.1:${CORPUS_HOST_PORT:-8000}:8000"
+    volumes:
+      - corpus-data:/app/data        # downloaded Bibles, imported commentaries, the corpus
+      - corpus-index:/app/indexes    # the search index
+      - ./knowledge:/app/knowledge:ro  # your reviewed knowledge bundle (git)
+      - ./imports:/app/imports:ro    # drop calcom.doc and mhcc.txt here
+    restart: unless-stopped
+
+volumes:
+  corpus-data:
+  corpus-index:

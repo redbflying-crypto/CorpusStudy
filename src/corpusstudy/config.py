@@ -98,6 +98,7 @@ class Settings(BaseSettings):
     data_dir: Path = REPO_ROOT / "data"
     knowledge_dir: Path = REPO_ROOT / "knowledge"
     index_dir: Path = REPO_ROOT / "indexes"
+    imports_dir: Path = REPO_ROOT / "imports"  # hand-downloaded commentary files (prepare)
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
@@ -160,7 +161,7 @@ class Settings(BaseSettings):
             raise ValueError("embeddings must be none, voyage or local")
         return v
 
-    @field_validator("data_dir", "knowledge_dir", "index_dir")
+    @field_validator("data_dir", "knowledge_dir", "index_dir", "imports_dir")
     @classmethod
     def _resolve_path(cls, v: Path) -> Path:
         return v if v.is_absolute() else REPO_ROOT / v
