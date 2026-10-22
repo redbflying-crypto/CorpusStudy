@@ -47,8 +47,12 @@ class Evidence:
             title = (VerseRef(book=passage.book, chapter=passage.start_chapter, verse=0)
                      if passage and passage.book == "Ps" else None)  # fmt: skip
             out.append((title, parts[0].strip()))
+        chapter, last = (passage.start_chapter if passage else 0), 0
         for number, text in zip(parts[1::2], parts[2::2], strict=True):
-            ref = (VerseRef(book=passage.book, chapter=passage.start_chapter, verse=int(number))
+            if int(number) <= last:  # a multi-chapter passage moved to the next chapter
+                chapter += 1
+            last = int(number)
+            ref = (VerseRef(book=passage.book, chapter=chapter, verse=last)
                    if passage else None)  # fmt: skip
             out.append((ref, text.strip()))
         return out
@@ -78,13 +82,26 @@ def label(chunk: Chunk) -> str:
     return f"{title} — {section}" if section else title
 
 
-def pack(results: list[RetrievalResult]) -> list[Evidence]:
-    """Evidence in retrieval order, keyed E1, E2, ... for commentary and knowledge."""
+def pack(results: list[RetrievalResult | Chunk]) -> list[Evidence]:
+    """Evidence in retrieval order, keyed E1, E2, ... for commentary and knowledge. A
+    Scripture chunk whose verses all came earlier (overlapping windows) is dropped, and so
+    is a repeated chunk."""
     out, n = [], 0
+    seen_ids: set[str] = set()
+    seen_verses: set[tuple] = set()
     for r in results:
-        if r.chunk.source_type == SourceType.SCRIPTURE:
-            out.append(Evidence(None, r.chunk, label(r.chunk)))
+        chunk = r.chunk if isinstance(r, RetrievalResult) else r
+        if chunk.id in seen_ids:
+            continue
+        seen_ids.add(chunk.id)
+        if chunk.source_type == SourceType.SCRIPTURE:
+            e = Evidence(None, chunk, label(chunk))
+            verses = {(chunk.translation, ref.osis) for ref, _ in e.verses() if ref}
+            if verses and verses <= seen_verses:
+                continue
+            seen_verses |= verses
+            out.append(e)
         else:
             n += 1
-            out.append(Evidence(f"E{n}", r.chunk, label(r.chunk)))
+            out.append(Evidence(f"E{n}", chunk, label(chunk)))
     return out

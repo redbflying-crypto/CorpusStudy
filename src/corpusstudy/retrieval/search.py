@@ -17,7 +17,10 @@ interleaved so an answer sees Scripture, commentary and knowledge side by side. 
 letters match as prefixes, which absorbs stemmer differences ("justification" ~ "justified").
 
 Naming a commentator ("Matthew Henry", "Calvin") restricts commentary to that work and is
-not searched as words. Knowledge chunks are kept only for concepts the bot may use
+not searched as words. `books` / `testament` restrict Scripture and commentary to those books
+(metadata filters); `cross_references` lists passages linked to a passage by the
+commentaries' own citations and by knowledge concepts' key passages. Knowledge chunks are
+kept only for concepts the bot may use
 (`okf.graph.usable`): human-reviewed and stable unless `use_drafts`. Dense vectors plug in
 later as one more list per kind (settings.embeddings).
 """
@@ -31,9 +34,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from corpusstudy.canon import BOOKS, BOOKS_BY_OSIS
 from corpusstudy.config import Language, Translation, get_settings
 from corpusstudy.corpus import bible
-from corpusstudy.indexing.analysis import detect_language, fold, query_terms, stems
+from corpusstudy.indexing.analysis import detect_language, fold, query_terms, stems, tokens
 from corpusstudy.indexing.build import index_status
 from corpusstudy.indexing.store import index_path, passage_bounds
 from corpusstudy.okf.bundle import load_bundle
@@ -79,7 +83,13 @@ class Query:
     phrase: list[str]  # every stem in order, for a phrase match
     works: list[str] = field(default_factory=list)  # commentators named in the question
     wants_commentary: bool = False
+    words: tuple[str, ...] = ()  # for matching concept names
+    books: frozenset[str] = frozenset()  # filter for Scripture and commentary; empty = all
     lists: dict[str, list[str]] = field(default_factory=dict)  # "<list>:<kind>" -> chunk ids
+
+
+def _canonical(p: PassageRef) -> tuple[int, int]:
+    return (BOOKS_BY_OSIS[p.book].order, passage_bounds(p)[0])
 
 
 def _term(t: str) -> str:
@@ -133,11 +143,14 @@ class Search:
             match = " + ".join(_term(t) for t in terms)
         else:
             match = f" {mode} ".join(_term(t) for t in terms)
-        rows = self.con.execute(
-            "SELECT c.id FROM fts JOIN chunks c ON c.rowid = fts.chunk "
-            "WHERE fts MATCH ? AND fts.lang = ? AND fts.kind = ? ORDER BY bm25(fts) LIMIT ?",
-            (match, str(lang), kind, limit * 4),
-        ).fetchall()
+        sql = ("SELECT c.id FROM fts JOIN chunks c ON c.rowid = fts.chunk "
+               "WHERE fts MATCH ? AND fts.lang = ? AND fts.kind = ?")  # fmt: skip
+        args: list = [match, str(lang), kind]
+        if q.books and kind != "knowledge":
+            marks = ",".join("?" * len(q.books))
+            sql += f" AND c.rowid IN (SELECT chunk FROM refs WHERE book IN ({marks}))"
+            args += sorted(q.books)
+        rows = self.con.execute(sql + " ORDER BY bm25(fts) LIMIT ?", (*args, limit * 4)).fetchall()
         ids = list(dict.fromkeys(r[0] for r in rows))
         return [i for i in ids if self._allowed(i, kind, q.works)][:limit]
 
@@ -151,10 +164,44 @@ class Search:
         found: dict[str, int] = {}
         for name, concept in self.names.get(q.language, []):
             n = len(name)
-            if any(tuple(q.phrase[i : i + n]) == name for i in range(len(q.phrase) - n + 1)):
+            if any(tuple(q.words[i : i + n]) == name for i in range(len(q.words) - n + 1)):
                 found[concept] = max(found.get(concept, 0), n)
         ordered = sorted(found, key=lambda c: (-found[c], c))
         return [first for c in ordered if (first := self._first_chunk(c))]
+
+    def cross_references(
+        self, ref: PassageRef, limit: int = 8
+    ) -> list[tuple[PassageRef, list[str]]]:
+        """Passages linked to `ref` (KJV numbering) with what links them (commentary excerpt
+        ids, usable knowledge concepts). A commentator's citation counts twice a concept's;
+        ties go to the shorter, then the canonically first, passage."""
+        start, stop = passage_bounds(ref)
+        rows = self.con.execute(
+            "SELECT target, via FROM xrefs WHERE book = ? AND start <= ? AND stop >= ?",
+            (ref.book, stop, start),
+        ).fetchall()
+        found: dict[str, list[str]] = defaultdict(list)
+        for target, via in rows:
+            if ":" not in via and via not in self.usable:  # a concept the bot may not use
+                continue
+            t = PassageRef.from_osis(target)
+            if (
+                t.book == ref.book
+                and passage_bounds(t)[0] <= stop
+                and passage_bounds(t)[1] >= start
+            ):
+                continue
+            if via not in found[target]:
+                found[target].append(via)
+
+        def rank(target: str) -> tuple:
+            p = PassageRef.from_osis(target)
+            weight = sum(2 if ":" in via else 1 for via in found[target])
+            start, stop = passage_bounds(p)
+            return (-weight, stop - start, _canonical(p))
+
+        order = sorted(found, key=rank)
+        return [(PassageRef.from_osis(t), found[t]) for t in order[:limit]]
 
     def _about(self, q: Query, refs: list[PassageRef], kind: str, limit: int) -> list[str]:
         """Chunks whose passages overlap `refs` (KJV numbering), tightest first."""
@@ -170,10 +217,25 @@ class Search:
             for cid, s, e in rows:
                 if not self._allowed(cid, kind, q.works):
                     continue
+                if q.books and kind != "knowledge" and ref.book not in q.books:
+                    continue
                 key = (e - s, -(min(e, stop) - max(s, start)))  # narrow and on-topic first
                 if cid not in scored or key < scored[cid]:
                     scored[cid] = key
         return sorted(scored, key=lambda c: (scored[c], c))[:limit]
+
+    def passage_chunks(self, refs: list[PassageRef], language: Language) -> list[Chunk]:
+        """The passages read from the Bible in the language's translation (its numbering)."""
+        return self._lookup(refs, language)
+
+    def excerpt_chunks(self, excerpt_id: str, limit: int = 1) -> list[Chunk]:
+        """The chunks of a commentary excerpt ("henry-concise:John.3.14-John.3.18")."""
+        rows = self.con.execute(
+            "SELECT id FROM chunks WHERE kind = 'commentary' AND (id = ? OR id LIKE ?) "
+            "ORDER BY rowid LIMIT ?",
+            (excerpt_id, f"{excerpt_id}#%", limit),
+        ).fetchall()
+        return [self._chunk(r[0]) for r in rows]
 
     def _lookup(self, refs: list[PassageRef], language: Language) -> list[Chunk]:
         tr = get_settings().translation_for(language)
@@ -224,7 +286,9 @@ class Search:
         folded = _COMMENTARY_WORDS.sub(" ", folded)
         terms = [t for t in query_terms(folded, language) if not t.isdigit()]
         phrase = [t for t in stems(folded, language) if not t.isdigit()]
-        return Query(text, language, refs, terms, phrase, works, wants)
+        q = Query(text, language, refs, terms, phrase, works, wants)
+        q.words = _name_words(strip_references(text), language)
+        return q
 
     def search(
         self,
@@ -234,8 +298,14 @@ class Search:
         k: int = 10,
         kinds: tuple[str, ...] = KINDS,
         per_list: int = 30,
+        books: list[str] | None = None,
+        testament: str | None = None,
     ) -> list[RetrievalResult]:
         q = self.analyse(text, language)
+        allowed = set(books or [])
+        if testament:
+            allowed |= {b.osis for b in BOOKS if str(b.testament) == testament}
+        q.books = frozenset(allowed)
         lists: dict[str, list[str]] = {}
         extra: dict[str, Chunk] = {}
         bible_numbering = str(get_settings().translation_for(q.language))
@@ -337,25 +407,41 @@ class Search:
         return results
 
 
+def _name_words(text: str, language: Language) -> tuple[str, ...]:
+    """Words for matching concept names: folded surface words, a plural "s"/"x" dropped.
+    Not stems: stemming would make "holy" name Holiness and French "Moïse" match "mois"."""
+    out = []
+    text = re.sub(r"(?<=\w)-(?=\w)", "", text)  # "cross-references" is not "the cross"
+    for w in tokens(fold(text), language):
+        if w.isdigit():
+            continue
+        if len(w) > 4 and w[-1] in "sx" and not w.endswith("ss"):
+            w = w[:-1]
+        out.append(w)
+    return tuple(out)
+
+
 def _concept_names(bundle, usable: set[str]) -> dict[Language, list[tuple[tuple[str, ...], str]]]:
-    """Stemmed titles, file names and aliases of the usable concepts, per language. Names without a
-    content word of three or more letters ("Gn") are left out."""
+    """Titles, file names and aliases of the usable concepts, as words, per language. Names
+    without a content word of three or more letters ("Gn") are left out, and so is a one-word
+    file name that is not the title (`jesus` for "Jesus Christ" would match most questions)."""
     names: dict[Language, list[tuple[tuple[str, ...], str]]] = defaultdict(list)
     for c in bundle.concepts.values():
         if c.id not in usable or c.meta.type == "Reference":
             continue
         extra = c.meta.extra
         slug = c.id.rsplit("/", 1)[-1].replace("-", " ")  # the OKF id names it too
+        en = [c.title, *(extra.get("aliases") or [])]
+        if " " in slug:
+            en.append(slug)
         per_lang = {
-            Language.EN: [c.title, slug, *(extra.get("aliases") or [])],
+            Language.EN: en,
             Language.FR: [extra.get("title_fr") or "", *(extra.get("aliases_fr") or [])],
         }
         for lang, raw in per_lang.items():
             for name in dict.fromkeys(str(n) for n in raw if n):
-                folded = fold(name)
-                if not any(len(t) >= 3 for t in query_terms(folded, lang)):
+                if not any(len(t) >= 3 for t in query_terms(fold(name), lang)):
                     continue
-                stemmed = tuple(t for t in stems(folded, lang) if not t.isdigit())
-                if stemmed:
-                    names[lang].append((stemmed, c.id))
+                if words := _name_words(name, lang):
+                    names[lang].append((words, c.id))
     return names

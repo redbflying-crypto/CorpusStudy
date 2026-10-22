@@ -59,7 +59,7 @@ def run_eval(args: argparse.Namespace) -> int:
         if not get_settings().has_api_key:
             print("live evaluation skipped: ANTHROPIC_API_KEY is not set", file=sys.stderr)
             return 2
-        evaluate_live(results, Answerer(search))
+        evaluate_live(results, Answerer(search), judge=args.judge)
     s = summarise(results)
 
     def pct(pair: tuple[int, int]) -> str:
@@ -68,17 +68,23 @@ def run_eval(args: argparse.Namespace) -> int:
 
     print(f"{s['cases']} cases")
     labels = [("routing", "routing"), ("language", "language detected"),
-              ("concept", "concept named"), ("safety_cases", "safety message first"),
-              ("no_false_alarm", "no false safety alarm"), ("lookups", "lookups")]  # fmt: skip
+              ("concept", "concept named"), ("advice_domain", "advice domain"),
+              ("safety_cases", "safety message first"),
+              ("no_false_alarm", "no false safety alarm"), ("lookups", "lookups"),
+              ("comparisons", "each book compared"), ("crossrefs", "cross-refs found (info)"),
+              ("refusals", "hateful requests declined"),
+              ("advice_notes", "advice note first")]  # fmt: skip
     for key, label in labels:
         print(f"  {label:24} {pct(s[key])}")
     if "live" in s:
         live = s["live"]
         print("live")
         for key in ("citation_accuracy", "answers_all_verified", "answered", "safety_first",
-                    "cited_expected"):  # fmt: skip
+                    "cannot_verify", "cited_expected", "faithful"):  # fmt: skip
             print(f"  {key.replace('_', ' '):24} {pct(live[key])}")
         print(f"  {'median seconds':24} {live['median_seconds']}")
+        print(f"  {'cost per question':24} ${live['cost_usd_mean']} "
+              f"(total ${live['cost_usd_total']})")  # fmt: skip
     print("by category: " + ", ".join(f"{k} {v[0]}/{v[1]}" for k, v in s["by_category"].items()))
     for r in results:
         if not r.ok:
@@ -107,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     ev = sub.add_parser("eval", help="answer evaluation (offline; --live calls the API)")
     ev.add_argument("--live", action="store_true", help="also answer through the API")
     ev.add_argument("--cases", type=Path, help="cases file (default eval/answers.yaml)")
+    ev.add_argument("--judge", action="store_true", help="live: check faithfulness too")
     ev.add_argument("--json", type=Path, help="write per-case results to this file")
     args = parser.parse_args(argv)
     if args.cmd == "eval":
@@ -120,8 +127,12 @@ def main(argv: list[str] | None = None) -> int:
         from corpusstudy.router import route
 
         r = route(args.question, Language(args.lang) if args.lang else None, search)
+        extras = {"books": r.books, "advice": r.advice, "translation": r.translation,
+                  "unavailable": r.unavailable_translation,
+                  "secondary": [str(x) for x in r.secondary]}  # fmt: skip
+        shown = " ".join(f"{k}={v}" for k, v in extras.items() if v)
         print(f"route={r.route} language={r.language} refs={[x.osis for x in r.refs]} "
-              f"concepts={r.concepts} concern={r.concern} ({r.reason})")  # fmt: skip
+              f"concepts={r.concepts} concern={r.concern} {shown} ({r.reason})")  # fmt: skip
         return 0
 
     if args.cmd == "smoke":

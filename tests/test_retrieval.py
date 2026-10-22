@@ -86,7 +86,7 @@ def verses(tr, book, chapter, n, title=False):
     out = [Verse(ref=VerseRef(book=book, chapter=chapter, verse=0), translation=tr,
                  text="A Psalm of David.")] if title else []  # fmt: skip
     out += [Verse(ref=VerseRef(book=book, chapter=chapter, verse=v), translation=tr,
-                  text=f"verse {v} text") for v in range(1, n + 1)]  # fmt: skip
+                  text=f"verse {v} text.") for v in range(1, n + 1)]  # fmt: skip
     return out
 
 
@@ -102,6 +102,17 @@ def test_bible_windows_cover_every_verse():
                for v in range(c.refs[0].start_verse or 1, c.refs[0].end_verse + 1)}  # fmt: skip
     assert {(3, v) for v in range(1, 9)} <= covered
     assert all(c.metadata["numbering"] == "KJV" for c in chunks)
+    assert chunks[0].metadata["testament"] == "OT" and chunks[0].metadata["book_number"] == 19
+
+
+def test_bible_windows_do_not_split_sentences():
+    vs = verses(Translation.KJV, "John", 3, 8)
+    vs[2] = vs[2].model_copy(update={"text": "verse 3 runs on,"})  # the sentence goes on
+    vs[3] = vs[3].model_copy(update={"text": "and ends here;"})
+    ids = [c.id for c in bible_chunks(FakeBible(Translation.KJV, vs), size=3, stride=2)]
+    # 1-3 runs to 5 (verse 4 ends with ";"), and 3-5 starts back at the sentence start.
+    assert ids[0] == "KJV:John.3.1-John.3.5"
+    assert all(not i.startswith("KJV:John.3.4") for i in ids)
 
 
 def test_split_long_excerpts_on_sentences():

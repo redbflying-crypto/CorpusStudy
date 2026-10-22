@@ -1,11 +1,14 @@
 """Chunks: the units that search returns.
 
 - Bible: windows of `size` verses moving by `stride` inside a chapter, in each translation's
-  own numbering (a psalm title travels with verse 1).
+  own numbering (a psalm title travels with verse 1). A window starts at the beginning of a
+  sentence and runs to the end of one (at most `max_size` verses), so no sentence is split;
+  each carries its book number and testament.
 - Commentary: one chunk per excerpt; long excerpts are split on sentence boundaries.
 - Knowledge (OKF concepts): one chunk per `#` section, carrying the concept's trust
-  metadata so search can apply the review rules at query time. Reference concepts (source
-  descriptions) are not content and are skipped.
+  metadata so search can apply the review rules at query time, and what the section holds
+  (`content`: summary, biblical_text, historical_context or interpretation). Reference
+  concepts (source descriptions) are not content and are skipped.
 """
 
 from __future__ import annotations
@@ -13,19 +16,37 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
+from corpusstudy.canon import BOOKS_BY_OSIS
 from corpusstudy.commentary import CommentaryExcerpt
 from corpusstudy.config import Language, Translation
 from corpusstudy.corpus import BibleText
 from corpusstudy.okf.bundle import Bundle, Concept
 from corpusstudy.schemas import Chunk, PassageRef, SourceType, parse_reference
 
+# What each template section holds (okf.lifecycle.TEMPLATES); unknown headings: summary.
+SECTION_CONTENT = {
+    "Definition": "summary", "Summary": "summary", "Overview": "summary",
+    "Life": "biblical_text", "Development through Scripture": "biblical_text",
+    "Outline": "biblical_text", "Key passages": "biblical_text",
+    "Setting": "historical_context", "Context": "historical_context",
+    "Reformed view": "interpretation", "Where other traditions differ": "interpretation",
+    "Significance": "interpretation", "Meaning": "interpretation",
+    "Interpretive notes": "interpretation", "Themes": "interpretation",
+}  # fmt: skip
+_VERSE_END = re.compile(r"[.?!][’'\")\]»]*\s*$")
 _SENTENCE_END = re.compile(r"(?<=[.!?;])\s+(?=[A-Z“\"'(])")
 _FOOTNOTE_DEF = re.compile(r"^\[\^[^\]]+\]:.*$", re.M)
 _FOOTNOTE_REF = re.compile(r"\[\^[^\]]+\]")
 _MD_LINK = re.compile(r"(?<!!)\[([^\]]*)\]\([^)]*\)")
 
 
-def bible_chunks(text: BibleText, size: int = 3, stride: int = 2) -> Iterator[Chunk]:
+def _ends_sentence(text: str) -> bool:
+    return bool(_VERSE_END.search(text))
+
+
+def bible_chunks(
+    text: BibleText, size: int = 3, stride: int = 2, max_size: int = 10
+) -> Iterator[Chunk]:
     tr = text.translation
     chapters: dict[tuple[str, int], list] = {}
     for verse in text:
@@ -37,9 +58,27 @@ def bible_chunks(text: BibleText, size: int = 3, stride: int = 2) -> Iterator[Ch
         starts = list(range(0, max(len(numbered) - size, 0) + 1, stride))
         if starts[-1] + size < len(numbered):
             starts.append(len(numbered) - size)  # the last window reaches the chapter end
+        seen: set[tuple[int, int]] = set()
         for i in starts:
-            window = numbered[i : i + size]
-            if i == 0:
+            begin = i  # back to the start of the sentence (a few verses at most)
+            while (
+                begin > 0
+                and i - begin < max_size - size
+                and not _ends_sentence(numbered[begin - 1].text)
+            ):
+                begin -= 1
+            end = min(i + size, len(numbered))  # forward to the end of a sentence
+            while (
+                end < len(numbered)
+                and end - begin < max_size
+                and not _ends_sentence(numbered[end - 1].text)
+            ):
+                end += 1
+            if (begin, end) in seen:
+                continue
+            seen.add((begin, end))
+            window = numbered[begin:end]
+            if begin == 0:
                 window = title + window
             first, last = window[0].ref, window[-1].ref
             passage = PassageRef(
@@ -57,7 +96,11 @@ def bible_chunks(text: BibleText, size: int = 3, stride: int = 2) -> Iterator[Ch
                 language=tr.language,
                 refs=[passage],
                 translation=tr,
-                metadata={"numbering": str(tr)},
+                metadata={
+                    "numbering": str(tr),
+                    "book_number": BOOKS_BY_OSIS[book].order,
+                    "testament": str(BOOKS_BY_OSIS[book].testament),
+                },  # fmt: skip
             )
 
 
@@ -178,5 +221,9 @@ def _concept_chunks(c: Concept) -> Iterator[Chunk]:
             language=Language.EN,
             refs=refs,
             concept_id=c.id,
-            metadata={**common, "section": heading},
+            metadata={
+                **common,
+                "section": heading,
+                "content": SECTION_CONTENT.get(heading, "summary"),
+            },  # fmt: skip
         )

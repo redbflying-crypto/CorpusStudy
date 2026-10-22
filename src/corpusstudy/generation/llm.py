@@ -4,7 +4,8 @@ One request per answer (plus at most one repair). Structured output fixes the re
 (`{"answer": ..., "interpretive": ...}`); the system prompt is cached; a request the model
 declines on safety grounds is retried server-side on Anthropic's recommended fallback model
 (`fallbacks: "default"`). Thinking is adaptive (always on for this model); `effort` sets
-its depth.
+its depth. Every call's token usage is added to `usage`, with a cost estimate from PRICES.
+`classify` is the optional model-assisted routing step (CORPUS_LLM_ROUTER).
 """
 
 from __future__ import annotations
@@ -14,9 +15,26 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from corpusstudy.config import get_settings
-from corpusstudy.generation.prompts import ANSWER_SCHEMA, SYSTEM
+from corpusstudy.generation.prompts import (
+    ANSWER_SCHEMA,
+    CLASSIFY,
+    CLASSIFY_SCHEMA,
+    JUDGE,
+    JUDGE_SCHEMA,
+    SYSTEM,
+    evidence_block,
+)
+from corpusstudy.schemas import Usage
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+# US dollars per million tokens: input, output, cache read, cache write (5-minute).
+# Fallback models are priced too (cache reads 0.1x input, cache writes 1.25x input).
+PRICES = {
+    "claude-opus-5-5": (4.00, 20.00, 0.20, 5.00),
+    "claude-opus-5": (5.00, 25.00, 0.50, 6.25),
+    "claude-opus-4-8": (5.00, 25.00, 0.50, 6.25),
+}
 
 
 class LLMUnavailable(RuntimeError):
@@ -30,6 +48,7 @@ class Reply:
     stop_reason: str | None = None
     content: list[Any] = field(default_factory=list)  # raw blocks, to replay in a repair turn
     model: str | None = None
+    data: dict[str, Any] = field(default_factory=dict)  # the parsed JSON reply
 
     @property
     def declined(self) -> bool:
@@ -50,29 +69,74 @@ class LLM:
         self.model = model or settings.llm_model
         self.effort = effort or settings.llm_effort
         self.max_tokens = settings.llm_max_tokens
+        self.usage = Usage()
 
     def ask(self, messages: list[dict[str, Any]]) -> Reply:
+        reply = self._call(SYSTEM, messages, ANSWER_SCHEMA, self.effort, self.max_tokens)
+        if reply.data:
+            reply.answer = str(reply.data.get("answer", "")).strip() or None
+            reply.interpretive = bool(reply.data.get("interpretive", False))
+        return reply
+
+    def classify(self, question: str) -> dict[str, Any]:
+        """The model's route for an open question: {"route": ..., "books": [...]}."""
+        messages = [{"role": "user", "content": question}]
+        return self._call(CLASSIFY, messages, CLASSIFY_SCHEMA, "low", 1024).data
+
+    def judge(self, evidence: list[Any], answer: str) -> dict[str, Any]:
+        """Evaluation only: is every claim in the answer supported by its evidence?"""
+        content = f"{evidence_block(evidence)}\n<answer>\n{answer}\n</answer>"
+        messages = [{"role": "user", "content": content}]
+        return self._call(JUDGE, messages, JUDGE_SCHEMA, "medium", 4096).data
+
+    def _call(self, system: str, messages: list[dict[str, Any]], schema: dict[str, Any],
+              effort: str, max_tokens: int) -> Reply:  # fmt: skip
         response = self.client.beta.messages.create(
             model=self.model,
-            max_tokens=self.max_tokens,
-            system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
+            max_tokens=max_tokens,
+            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             messages=messages,
-            output_config={
-                "effort": self.effort,
-                "format": {"type": "json_schema", "schema": ANSWER_SCHEMA},
-            },
+            output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}},
             betas=[FALLBACK_BETA],
             fallbacks="default",
         )
+        model = getattr(response, "model", None)
+        self._count(getattr(response, "usage", None), model or self.model)
         reply = Reply(None, stop_reason=response.stop_reason, content=list(response.content),
-                      model=getattr(response, "model", None))  # fmt: skip
+                      model=model)  # fmt: skip
         if response.stop_reason != "end_turn":  # refusal, max_tokens, ...
             return reply
         text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
         try:
             data = json.loads(text)
-            reply.answer = str(data["answer"]).strip() or None
-            reply.interpretive = bool(data.get("interpretive", False))
-        except (ValueError, KeyError, TypeError):
-            reply.answer = None
+            reply.data = data if isinstance(data, dict) else {}
+        except ValueError:
+            reply.data = {}
         return reply
+
+    def _count(self, usage: Any, model: str) -> None:
+        u = self.usage
+        u.calls += 1
+        if usage is None:
+            return
+        tokens = {
+            "input_tokens": getattr(usage, "input_tokens", 0) or 0,
+            "output_tokens": getattr(usage, "output_tokens", 0) or 0,
+            "cache_read_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+            "cache_write_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        }
+        for key, n in tokens.items():
+            setattr(u, key, getattr(u, key) + n)
+        price = PRICES.get(model)
+        if price is None or (u.cost_usd is None and u.calls > 1):
+            u.cost_usd = None
+            return
+        cost = (tokens["input_tokens"] * price[0] + tokens["output_tokens"] * price[1]
+                + tokens["cache_read_tokens"] * price[2]
+                + tokens["cache_write_tokens"] * price[3]) / 1e6  # fmt: skip
+        u.cost_usd = round((u.cost_usd or 0.0) + cost, 6)
+
+    def take_usage(self) -> Usage:
+        """The usage counted since the last call to take_usage (per answer)."""
+        usage, self.usage = self.usage, Usage()
+        return usage

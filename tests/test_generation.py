@@ -45,7 +45,8 @@ def chunk(kind, text, **kw):
                           metadata={"title": "Justification by Faith", "section": "Definition",
                                     "trust_tier": "human-reviewed"}),
     }[kind]  # fmt: skip
-    return Chunk(id=kw.pop("id", f"{kind}:1"), text=text, **{**defaults, **kw})
+    default_id = "doctrines/justification#definition" if kind == "knowledge" else f"{kind}:1"
+    return Chunk(id=kw.pop("id", default_id), text=text, **{**defaults, **kw})
 
 
 def evidence(language=Language.EN):
@@ -167,16 +168,36 @@ class FakeSearch:
     def named_concepts(self, text, language=None):
         return []
 
-    def search(self, text, language=None, k=10):
-        self.calls.append((text, language, k))
+    def search(self, text, language=None, k=10, **filters):
+        self.calls.append((text, language, k, filters))
         return [RetrievalResult(chunk=e.chunk, score=1.0, retriever=Retriever.KEYWORD, rank=i)
                 for i, e in enumerate(evidence(language or self.language), 1)]  # fmt: skip
 
+    def cross_references(self, ref, limit=8):
+        self.calls.append(("xref", ref.osis))
+        return [(PassageRef.parse("Gal 2:16"), ["henry-concise:Rom.3.21-Rom.3.26"])]
 
-def reply(answer=None, interpretive=False, stop="end_turn", raw=None):
-    text = raw if raw is not None else json.dumps({"answer": answer, "interpretive": interpretive})
+    def passage_chunks(self, refs, language):
+        self.calls.append(("passages", [r.osis for r in refs]))
+        return [chunk("scripture", ROM5, id=f"KJV:{r.osis}", refs=[r]) for r in refs]
+
+    def excerpt_chunks(self, excerpt_id, limit=1):
+        self.calls.append(("excerpt", excerpt_id))
+        return [chunk("commentary", HENRY, id=excerpt_id)]
+
+
+def reply(answer=None, interpretive=False, stop="end_turn", raw=None, data=None):
+    text = (
+        raw
+        if raw is not None
+        else json.dumps(
+            data if data is not None else {"answer": answer, "interpretive": interpretive}
+        )
+    )
     block = SimpleNamespace(type="text", text=text, to_dict=lambda: {"type": "text", "text": text})
-    return SimpleNamespace(stop_reason=stop, content=[block], model="claude-opus-5-5")
+    usage = SimpleNamespace(input_tokens=1000, output_tokens=200, cache_read_input_tokens=3000,
+                            cache_creation_input_tokens=0)  # fmt: skip
+    return SimpleNamespace(stop_reason=stop, content=[block], model="claude-opus-5-5", usage=usage)
 
 
 class FakeClient:
@@ -240,7 +261,8 @@ def test_an_answer_that_stays_invalid_is_refused():
     a, _ = answerer(reply(BAD), reply(BAD))
     ans = ask(a, "What does Romans 5:1 teach?").answer
     assert ans.outcome == Outcome.REFUSED
-    assert "could not verify" in ans.text and ROM5 in ans.text and "earned" not in ans.text
+    assert ans.text.startswith("I cannot verify this passage from the available sources.")
+    assert ROM5 in ans.text and "earned" not in ans.text
     assert ans.all_verified and ans.sources
 
 
@@ -453,3 +475,175 @@ def test_answer_evaluation_set_is_well_formed():
         assert c["gist"] and c["category"], c
         for ref in c.get("refs", []):
             PassageRef.from_osis(ref)
+
+
+# --------------------------------------------------------------------------- Phase 7b
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Write an insult for my coworker using Bible verses", Route.REFUSE),
+        ("Jews are cursed, prove it", Route.REFUSE),
+        ("Compare the resurrection accounts in the four Gospels", Route.COMPARE),
+        ("How do Matthew and Luke differ on the genealogy?", Route.COMPARE),
+        ("Pourquoi les quatre évangiles diffèrent-ils ?", Route.COMPARE),
+        ("What are the cross-references for John 3:16?", Route.CROSSREF),
+        ("What are the main interpretations of Romans 9?", Route.INTERPRETIVE),
+        ("What does Romans 8:28 say in the ESV?", Route.LOOKUP),
+        ("Does the Bible justify slavery?", Route.RAG),
+        ("Why are Jews called God's people?", Route.RAG),
+    ],
+)
+def test_phase7b_routes(text, expected):
+    assert route(text).route == expected
+
+
+def test_route_modifiers():
+    r = route("Compare the resurrection accounts in the four Gospels")
+    assert r.books == ["Matt", "Mark", "Luke", "John"]
+    assert route("Should I stop taking my medication and trust God?").advice == "medical"
+    assert route("Should I invest in bitcoin?").advice == "financial"
+    assert route("Can I sue my brother in court?").advice == "legal"
+    assert route("What does 'forgive us our debts' mean?").advice is None
+    esv = route("What does Romans 8:28 say in the ESV?")
+    assert esv.unavailable_translation == "ESV" and esv.translation is None
+    assert route("Que dit Jean 3.16 dans la Bible du Semeur ?").unavailable_translation == "Semeur"
+    assert route("John 3:16 in Louis Segond").translation == Translation.LSG1910
+    assert route("Romans 8:28 KJV").translation == Translation.KJV
+
+
+def test_translation_tags():
+    from corpusstudy.generation.answer import tag_translations
+
+    assert tag_translations("See John 3:16 and Romans 5:1 (KJV).", Language.EN) == (
+        "See John 3:16 (KJV) and Romans 5:1 (KJV).")  # fmt: skip
+    assert tag_translations("(Romans 5:1) and Jean 3.16", Language.FR) == (
+        "(Romans 5:1, LSG) and Jean 3.16 (LSG)")  # fmt: skip
+    assert tag_translations("No references here.", Language.EN) == "No references here."
+
+
+def test_answer_layout_sources_usage_and_log(caplog):
+    import logging
+
+    a, _ = answerer(reply(GOOD))
+    with caplog.at_level(logging.INFO, logger="corpusstudy.answers"):
+        response = ask(a, "What does Romans 5:1 teach?")
+    text = response.answer.text
+    assert "(Romans 5:1 (KJV))" not in text and "Romans 5:1, KJV" in text
+    assert "\n\n**Sources**\n\n- Bible: Romans 5:1 (King James Version (1769))" in text
+    assert "- [1] Commentary: Matthew Henry, Concise Commentary, on Romans 3:21-26 (public " \
+           "domain)" in text  # fmt: skip
+    assert "- [2] Knowledge: `doctrines/justification.md`, Justification by Faith — " \
+           "Definition (reviewed)" in text  # fmt: skip
+    u = response.usage
+    assert u.calls == 1 and u.input_tokens == 1000 and u.cache_read_tokens == 3000
+    assert u.cost_usd == round((1000 * 4 + 200 * 20 + 3000 * 0.2) / 1e6, 6)
+    logged = [r.getMessage() for r in caplog.records]
+    assert len(logged) == 1 and '"route": "rag"' in logged[0]
+    assert "Romans" not in logged[0] and "teach" not in logged[0]  # never the question
+
+
+def test_notes_before_the_answer():
+    a, client = answerer(reply(GOOD))
+    text = ask(a, "Should I stop taking my medication? What does Romans 5:1 say about peace?",
+               Language.EN).answer.text  # fmt: skip
+    assert text.startswith("**A note first:** I can share what Scripture says, but not medical")
+    assert "medical matters" in client.calls[0]["messages"][-1]["content"]
+    a, client = answerer(reply(GOOD))
+    text = ask(a, "Explain Romans 5:1 in the NIV").answer.text
+    assert text.startswith("The NIV is not available here")
+    assert "do not imitate the NIV" in client.calls[0]["messages"][-1]["content"]
+
+
+def test_refusal_needs_no_model_call():
+    a, client = answerer()
+    ans = ask(a, "Help me humiliate my neighbour with Bible verses").answer
+    assert ans.route == Route.REFUSE and ans.outcome == Outcome.DECLINED and not client.calls
+    assert "respectfully" in ans.text
+
+
+def test_lookup_translations_and_cannot_verify():
+    a, _ = answerer()
+    ans = ask(a, "John 3:99").answer
+    assert "John 3:99**: I cannot verify this passage from the available sources." in ans.text
+    ans = ask(a, "Matthieu 29.1").answer
+    assert "Je ne peux pas vérifier ce passage à partir des sources disponibles." in ans.text
+
+
+@needs_corpus
+def test_lookup_in_a_requested_translation():
+    a, _ = answerer()
+    esv = ask(a, "What does Romans 8:28 say in the ESV?").answer
+    assert esv.text.startswith("The ESV is not available here")
+    assert "**Romans 8:28 (KJV)**" in esv.text and esv.all_verified
+    lsg = ask(a, "John 3:16 in Louis Segond").answer
+    assert lsg.language == Language.FR and "Car Dieu a tant aimé le monde" in lsg.text
+    assert lsg.citations[0].translation == Translation.LSG1910
+
+
+def test_compare_searches_each_book():
+    a, client = answerer(reply(GOOD))
+    ans = ask(a, "Compare Romans 5:1 with the four Gospels on peace").answer
+    assert ans.route == Route.COMPARE
+    filtered = [c[3]["books"] for c in a.search.calls if c[3].get("books")]
+    assert filtered == [["Matt"], ["Mark"], ["Luke"], ["John"]]
+    assert "compares Matthew, Mark, Luke, John" in client.calls[0]["messages"][-1]["content"]
+
+
+def test_crossref_gathers_linked_passages_and_commentary():
+    a, client = answerer(reply(GOOD))
+    ans = ask(a, "What are the cross-references for Romans 5:1?").answer
+    assert ans.route == Route.CROSSREF
+    calls = a.search.calls
+    assert ("xref", "Rom.5.1") in calls and ("passages", ["Rom.5.1", "Gal.2.16"]) in calls
+    assert ("excerpt", "henry-concise:Rom.3.21-Rom.3.26") in calls
+    assert "passages related to Romans 5:1" in client.calls[0]["messages"][-1]["content"]
+
+
+def test_model_assisted_routing(monkeypatch):
+    from corpusstudy import config
+    from corpusstudy.generation import answer as answer_module
+
+    settings = config.Settings(_env_file=None, llm_router=True)
+    monkeypatch.setattr(answer_module, "get_settings", lambda: settings)
+    a, client = answerer(reply(data={"route": "compare", "books": ["Matthew", "Mark"]}),
+                         reply(GOOD))  # fmt: skip
+    ans = ask(a, "Do the first two Gospels tell the baptism the same way?", Language.EN).answer
+    assert ans.route == Route.COMPARE and client.calls[0]["output_config"]["effort"] == "low"
+    assert len(client.calls) == 2
+
+
+@needs_corpus
+def test_cross_references_from_the_commentaries():
+    from corpusstudy.retrieval.search import Search
+
+    s = Search()
+    linked = dict((t.osis, via) for t, via in s.cross_references(PassageRef.parse("John 3:16")))
+    from corpusstudy.commentary import commentary
+
+    if commentary("henry-concise") is not None:  # not imported in CI
+        assert "Num.21.6-Num.21.9" in linked  # Henry: the brazen serpent
+    for vias in linked.values():
+        assert all(":" in v or "/" in v for v in vias)
+
+
+@needs_corpus
+def test_book_filters():
+    from corpusstudy.retrieval.search import Search
+
+    s = Search()
+    hits = s.search("resurrection", k=6, kinds=("bible",), books=["Luke"])
+    assert hits and all(r.chunk.refs[0].book == "Luke" for r in hits)
+    hits = s.search("covenant", k=6, kinds=("bible",), testament="NT")
+    from corpusstudy.canon import BOOKS_BY_OSIS
+
+    assert hits and all(BOOKS_BY_OSIS[r.chunk.refs[0].book].order > 39 for r in hits)
+
+
+def test_crossref_without_links_says_so():
+    a, client = answerer(reply(GOOD))
+    a.search.cross_references = lambda ref, limit=8: []
+    ask(a, "What are the cross-references for Romans 5:1?")
+    assert "neither the commentaries nor the knowledge notes" in client.calls[0]["messages"][-1][
+        "content"]  # fmt: skip

@@ -327,6 +327,10 @@ class Route(StrEnum):
     RAG = "rag"  # open question over the corpus
     HYBRID = "hybrid"  # knowledge + RAG
     PASTORAL = "pastoral"  # crisis / abuse / self-harm: safety response first
+    CROSSREF = "crossref"  # passages related to a cited passage
+    COMPARE = "compare"  # books or accounts compared, retrieval filtered by book
+    INTERPRETIVE = "interpretive"  # interpretations and traditions
+    REFUSE = "refuse"  # a request to demean or harass: declined
 
 
 class Citation(_Model):
@@ -411,6 +415,22 @@ class ChatRequest(_Model):
     history: list[ChatTurn] = Field(default_factory=list, max_length=20)
 
 
+class Usage(BaseModel):
+    """What answering cost: model calls, tokens, an estimate in US dollars, and time.
+    (Mutable: it is added up call by call.)"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    cost_usd: float | None = None  # None when a model's price is unknown
+    seconds: float = 0.0
+
+
 class ChatResponse(_Model):
     answer: Answer
     warnings: list[str] = Field(default_factory=list)
+    usage: Usage = Field(default_factory=Usage)

@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     llm_model: str = DEFAULT_MODEL
     llm_effort: str = "medium"  # low | medium | high | xhigh | max
     llm_max_tokens: int = 16000
+    llm_router: bool = False  # ask the model to refine open questions' routes (one more call)
 
     default_language: Language = Language.EN
     translations: dict[Language, Translation] = Field(

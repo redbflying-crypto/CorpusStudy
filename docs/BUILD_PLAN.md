@@ -225,6 +225,22 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
   - Offline targets are met: routing, language, concepts, safety and lookups all at 100%.
   - Still to do: the live run (`python -m corpusstudy.generation eval --live`), which needs the API key, and your review of each case's `gist` and of the safety cases.
 
+### Phase 7b: Alignment with the original system prompt
+- **Why:** a gap analysis against `bible_chatbot_system_prompt.md`. Where the two conflict, the owner's Phase 0 decisions win: the Reformed stance stays primary with other traditions labelled, sources stay public domain only, and search stays keyword-only for now.
+- **Claude:**
+  - The answer layout (Answer, Key passages, Context, Interpretive perspectives, Sources).
+  - A translation tag on every reference, and the exact "cannot verify" sentence.
+  - Requests for translations that aren't loaded.
+  - Medical, legal and financial notes; refusal of hateful requests; privacy.
+  - Logging with cost.
+  - Book and testament filters; compare, interpretive and cross-reference routes.
+  - Public-domain cross-references from the commentaries; sentence-aware chunks; duplicate verses removed from evidence.
+  - Optional model-assisted routing.
+  - 17 more concepts and the Parable type.
+  - New evaluation categories, including live "cannot verify" correctness, cost and a faithfulness judge.
+- **Gate (you):** review the 17 new concepts with the others (54 in all) and the new evaluation cases.
+- **Status:** built. All offline targets are met on both the tuned and the held-out sets. The live run needs the API key.
+
 ### Phase 8: Docker and running locally
 - **Claude:** a Dockerfile and docker-compose setup with the corpus and indexes in a volume and `.env` for secrets, plus a runbook covering rebuilding the corpus, re-indexing, reviewing concepts and updating the bundle.
 - **You:** run `docker compose up` on your machine.
@@ -248,6 +264,7 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted; awaiting your review |
 | 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | 🟡 Built; offline targets met; awaiting your review of the expected answers and a live run |
+| 7b | Spec alignment: answer layout, translations, care rules, logging, new routes, 17 more concepts, evaluation | Claude, **you review** | 🟡 Built; offline targets met; 54 concepts await review |
 | 8 | Docker, local run | Shared | — |
 | 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
 

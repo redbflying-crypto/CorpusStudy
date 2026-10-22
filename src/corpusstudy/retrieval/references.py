@@ -40,6 +40,14 @@ def strip_references(text: str) -> str:
 def find_references(text: str) -> list[tuple[PassageRef, int, int]]:
     """(reference, start, end) for each citation, first occurrence of each passage."""
     found: dict[str, tuple[PassageRef, int, int]] = {}
+    for ref, start, end in all_references(text):
+        found.setdefault(ref.osis, (ref, start, end))
+    return list(found.values())
+
+
+def all_references(text: str) -> list[tuple[PassageRef, int, int]]:
+    """(reference, start, end) for every citation, in order."""
+    found: list[tuple[PassageRef, int, int]] = []
     pos = 0
     while m := _CANDIDATE.search(text, pos):
         prefix, book, numbers = m.group(1) or "", m.group(2), m.group(3)
@@ -55,9 +63,9 @@ def find_references(text: str) -> list[tuple[PassageRef, int, int]]:
             # next candidate.
             pos = m.start() + 1
             continue
-        found.setdefault(ref.osis, (ref, m.start(), m.end()))
+        found.append((ref, m.start(), m.end()))
         pos = m.end()
-    return list(found.values())
+    return found
 
 
 def find_invalid_references(text: str, language: Language = Language.EN) -> list[str]:

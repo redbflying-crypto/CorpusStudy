@@ -3,6 +3,9 @@
     chunks  id, kind (bible | commentary | knowledge), language, text, refs, metadata
     refs    one row per (chunk, passage): book, numbering, start/end as chapter*1000+verse
     fts     analysed stems per chunk and language (FTS5, BM25 ranking)
+    xrefs   cross-references (KJV numbering): passages Henry or Calvin cite in their comment
+            on a passage, and key passages listed together in a knowledge concept; both
+            directions, with the excerpt or concept that links them
     meta    what the index was built from, to detect a stale index
 
 Stems are computed by `analysis` (the same code analyses queries), so FTS5 only has to
@@ -25,7 +28,7 @@ from corpusstudy.indexing.analysis import stems
 from corpusstudy.schemas import Chunk, PassageRef, SourceType
 
 INDEX_NAME = "corpus.sqlite"
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 KIND = {
     SourceType.SCRIPTURE: "bible",
     SourceType.COMMENTARY: "commentary",
@@ -49,6 +52,14 @@ CREATE TABLE refs (
     stop INTEGER NOT NULL
 );
 CREATE INDEX refs_lookup ON refs (book, numbering, start, stop);
+CREATE TABLE xrefs (
+    book TEXT NOT NULL,
+    start INTEGER NOT NULL,
+    stop INTEGER NOT NULL,
+    target TEXT NOT NULL,       -- OSIS passage
+    via TEXT NOT NULL           -- commentary excerpt id or knowledge concept id
+);
+CREATE INDEX xrefs_lookup ON xrefs (book, start, stop);
 CREATE VIRTUAL TABLE fts USING fts5(
     terms, chunk UNINDEXED, lang UNINDEXED, kind UNINDEXED,
     tokenize = 'unicode61 remove_diacritics 0'
@@ -91,7 +102,9 @@ def write_index(path: Path, chunks: Iterable[Chunk], build_info: dict[str, Any])
     counts: dict[str, int] = {}
     started = time.monotonic()
     with con:
+        links: set[tuple[str, str, str]] = set()
         for chunk in chunks:
+            links |= _links(chunk)
             kind = KIND[chunk.source_type]
             cur = con.execute(
                 "INSERT INTO chunks (id, kind, language, data) VALUES (?, ?, ?, ?)",
@@ -111,7 +124,13 @@ def write_index(path: Path, chunks: Iterable[Chunk], build_info: dict[str, Any])
                     (" ".join(stems(text, lang)), rowid, str(lang), kind),
                 )
             counts[kind] = counts.get(kind, 0) + 1
-        info = {**build_info, "schema": SCHEMA_VERSION, "counts": counts,
+        for a, b, via in sorted(links):
+            for src, dst in ((a, b), (b, a)):
+                p = PassageRef.from_osis(src)
+                start, stop = passage_bounds(p)
+                con.execute("INSERT INTO xrefs VALUES (?, ?, ?, ?, ?)",
+                            (p.book, start, stop, dst, via))  # fmt: skip
+        info = {**build_info, "schema": SCHEMA_VERSION, "counts": counts, "xrefs": len(links),
                 "seconds": round(time.monotonic() - started, 1)}  # fmt: skip
         con.executemany(
             "INSERT INTO meta VALUES (?, ?)", [(k, json.dumps(v)) for k, v in info.items()]
@@ -121,6 +140,41 @@ def write_index(path: Path, chunks: Iterable[Chunk], build_info: dict[str, Any])
     con.close()
     tmp.replace(path)
     return info
+
+
+# Concepts whose key passages are related by subject (a book's or a person's key passages
+# are an outline, not cross-references).
+_LINKING_TYPES = {"Theme", "Doctrine", "Event", "Parable"}
+
+
+def _overlap(a: PassageRef, b: PassageRef) -> bool:
+    if a.book != b.book:
+        return False
+    a0, a1 = passage_bounds(a)
+    b0, b1 = passage_bounds(b)
+    return a0 <= b1 and b0 <= a1
+
+
+def _links(chunk: Chunk) -> set[tuple[str, str, str]]:
+    """Cross-reference pairs (passage, passage, via) a chunk contributes, KJV numbering."""
+    if chunk.source_type == SourceType.COMMENTARY:
+        via = chunk.id.split("#", 1)[0]
+        targets = []
+        for osis in chunk.metadata.get("mentions") or []:
+            try:
+                targets.append(PassageRef.from_osis(osis))
+            except ValueError:
+                continue
+        return {(r.osis, t.osis, via) for r in chunk.refs for t in targets if not _overlap(r, t)}
+    if (
+        chunk.source_type == SourceType.KNOWLEDGE
+        and chunk.concept_id
+        and (chunk.metadata.get("concept_type") in _LINKING_TYPES)
+    ):
+        refs = chunk.refs
+        return {(a.osis, b.osis, chunk.concept_id) for i, a in enumerate(refs)
+                for b in refs[i + 1:] if not _overlap(a, b)}  # fmt: skip
+    return set()
 
 
 @dataclass

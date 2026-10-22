@@ -22,7 +22,7 @@ Each lifecycle command adds an entry to `log.md` and refreshes the `index.md` fi
 knowledge/
   index.md          # root index; frontmatter okf_version: "0.2" (the only frontmatter allowed)
   log.md            # dated change history, newest first
-  books/ themes/ people/ doctrines/ events/     # knowledge concepts, each with an index.md
+  books/ themes/ people/ doctrines/ events/ parables/   # knowledge concepts, each with an index.md
   references/sources/                           # one Reference concept per source work (generated)
 ```
 
@@ -66,7 +66,11 @@ See also [faith](/doctrines/faith.md).
 [^kjv-rom5]: Romans 5:1 (KJV)
 ```
 
-The OKF keys are `type`, `title`, `description`, `tags`, `status`, `generated`, `verified` and `sources`. The project's own keys are `title_fr`, `aliases`, `key_passages`, `tradition` and `other_views`; OKF allows producers to add keys like these.
+The OKF keys are `type`, `title`, `description`, `tags`, `status`, `generated`, `verified` and `sources`. The project's own keys are `title_fr`, `aliases`, `aliases_fr`, `key_passages`, `tradition` and `other_views`; OKF allows producers to add keys like these.
+
+**Names.** The router matches a concept's title, aliases and multi-word file name in questions, as whole words (case, accents and a plural "s" aside; not stems). Keep aliases specific: no bare common words ("made", "service", "holy", "law"), no names shared with other people ("Saul", "Simon"), and nothing that is another concept's title or alias. Prefer phrases ("parable of the sower", "the law and the gospel").
+
+**Section content.** Search records what each section holds, from its heading: summary (Definition, Summary, Overview), biblical text (Life, Development through Scripture, Outline, Key passages), historical context (Setting, Context) or interpretation (Reformed view, Where other traditions differ, Significance, Meaning, Interpretive notes, Themes). The model sees this with each knowledge item.
 
 ## Provenance
 
@@ -106,7 +110,7 @@ The bot uses only human-reviewed knowledge concepts, unless drafts are explicitl
 
 OKF readers are tolerant: they accept unknown types and keys, missing optional fields and broken links. For our own bundle, `okf check` also enforces the following:
 
-- **Type:** `type` is one of `Bible Book`, `Theme`, `Person`, `Doctrine`, `Event` or `Reference`, and the file sits in the matching directory.
+- **Type:** `type` is one of `Bible Book`, `Theme`, `Person`, `Doctrine`, `Event`, `Parable` or `Reference`, and the file sits in the matching directory. Parable sections: Summary, Setting, Meaning, Interpretive notes, Key passages.
 - **Required fields:** `title`, `description`, `generated` (with `at`) and an explicit `status` are present, and every actor follows the OKF convention.
 - **Review state:**
   - `status: stable` requires a `human:` verification, except for Reference concepts.

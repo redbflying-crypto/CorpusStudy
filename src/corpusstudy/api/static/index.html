@@ -88,6 +88,7 @@ sup.ref a { color: var(--accent); text-decoration: none; font: 12px system-ui, s
 .tag.repaired, .badge.draft { background: var(--warn-bg); color: var(--warn); }
 .tag.answered, .tag.lookup, .badge.ok { background: var(--ok-bg); color: var(--ok); }
 .tag.safety, .tag.pastoral { background: var(--warn-bg); color: var(--warn); }
+.tag.refuse { background: var(--bad-bg); color: var(--bad); }
 .meta { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
 .meta h5 {
   margin: 0 0 6px; font: 600 12px system-ui, sans-serif; color: var(--muted);
@@ -168,7 +169,8 @@ const $ = (s) => document.querySelector(s);
 const log = $("#log"), form = $("#form"), q = $("#q"), send = $("#send");
 const history = [];
 const LABELS = {
-  route: { lookup: "Lookup", knowledge: "Knowledge", rag: "Search", hybrid: "Knowledge + search", pastoral: "Pastoral" },
+  route: { lookup: "Lookup", knowledge: "Knowledge", rag: "Search", hybrid: "Knowledge + search", pastoral: "Pastoral",
+           compare: "Comparison", crossref: "Cross-references", interpretive: "Interpretations", refuse: "Declined" },
   outcome: { answered: "Verified", repaired: "Verified after repair", refused: "Not verified: passages shown",
              lookup: "Read from the Bible", safety: "Safety message", declined: "Declined" },
 };
@@ -222,11 +224,14 @@ let counter = 0;
 function renderAnswer(data) {
   const a = data.answer, id = `a${++counter}`;
   const notFound = a.outcome === "lookup" && !a.citations.some((c) => c.verified);
-  const tags = [`<span class="tag ${a.route}">${LABELS.route[a.route] || a.route}</span>`,
+  const tags = a.route === "refuse" ? [`<span class="tag refuse">Declined</span>`] : [
+                `<span class="tag ${a.route}">${LABELS.route[a.route] || a.route}</span>`,
                 notFound ? `<span class="tag refused">Reference not found</span>`
                          : `<span class="tag ${a.outcome}">${LABELS.outcome[a.outcome] || a.outcome}</span>`];
   if (a.interpretive) tags.push(`<span class="tag">Includes interpretation</span>`);
-  let html = `<div class="tags">${tags.join("")}</div>${markdown(a.text, id, a.sources.length)}`;
+  // The answer text ends with a Sources section for plain-text readers; the page lists them below.
+  const body = a.text.split(/\n\n\*\*Sources\*\*\n/)[0];
+  let html = `<div class="tags">${tags.join("")}</div>${markdown(body, id, a.sources.length)}`;
   const meta = [];
   if (a.citations.length) {
     const chips = a.citations.map((c) => {
@@ -245,6 +250,12 @@ function renderAnswer(data) {
     meta.push(`<h5>Sources</h5><ol class="sources">${items}</ol>`);
   }
   if (meta.length) html += `<div class="meta">${meta.join("")}</div>`;
+  const u = data.usage;
+  if (u && u.calls) {
+    const cost = u.cost_usd == null ? "" : ` · about $${u.cost_usd.toFixed(3)}`;
+    html += `<details><summary>${u.calls} model call${u.calls > 1 ? "s" : ""} · ${u.seconds}s${cost}</summary>` +
+            `${u.input_tokens} input and ${u.output_tokens} output tokens, ${u.cache_read_tokens} read from cache.</details>`;
+  }
   if (data.warnings && data.warnings.length)
     html += `<details><summary>Validation notes (${data.warnings.length})</summary><ul>${data.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></details>`;
   return html;
