@@ -52,9 +52,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#xii-p51
     title: Calvin on Psalm 119:159
 title_fr: La loi et l'Évangile
-aliases: [law and gospel, law, gospel, commandments, works of the law, uses of the law, third use of the law, schoolmaster, antinomianism]
-aliases_fr: [loi et Évangile, la loi, l'Évangile, commandements, œuvres de la loi, usages de la loi, troisième usage de la loi, pédagogue, antinomisme]
-key_passages: ["Ps 19:7-11", "John 1:17", "Rom 3:19-31", "Rom 7:7-12", "Rom 8:3-4", "Rom 10:4", "2 Cor 3:6-18", "Gal 3:10-25", "Gal 5:13-14"]
+aliases: [law and gospel, the law and the gospel, commandments, works of the law, uses of the law, third use of the law, schoolmaster, antinomianism]
+aliases_fr: [loi et Évangile, commandements, œuvres de la loi, usages de la loi, troisième usage de la loi, pédagogue, antinomisme]
+key_passages: [Ps 19:7-11, John 1:17, Rom 3:19-31, Rom 7:7-12, Rom 8:3-4, Rom 10:4, 2 Cor 3:6-18, Gal 3:10-25, Gal 5:13-14]
 tradition: reformed
 other_views: true
 ---

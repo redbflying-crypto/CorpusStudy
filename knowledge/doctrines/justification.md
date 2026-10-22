@@ -40,9 +40,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#ix-p15
     title: Calvin on Genesis 15:6
 title_fr: La justification par la foi
-aliases: [justified, justifieth, imputed righteousness, faith alone, sola fide]
-aliases_fr: [justifié, justifiés, justice imputée, la foi seule]
-key_passages: ["Gen 15:6", "Rom 3:21-28", "Rom 4:1-8", "Rom 5:1", "2 Cor 5:21", "Gal 2:16", "Eph 2:8-10", "Phil 3:9"]
+aliases: [justification, justified, justifieth, imputed righteousness, faith alone, sola fide]
+aliases_fr: [justification, justifié, justifiés, justice imputée, la foi seule]
+key_passages: [Gen 15:6, Rom 3:21-28, Rom 4:1-8, Rom 5:1, 2 Cor 5:21, Gal 2:16, Eph 2:8-10, Phil 3:9]
 tradition: reformed
 other_views: true
 ---

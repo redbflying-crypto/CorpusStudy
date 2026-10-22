@@ -36,6 +36,7 @@ TYPES: dict[str, str] = {
     "Person": "people",
     "Doctrine": "doctrines",
     "Event": "events",
+    "Parable": "parables",
     "Reference": "references",
 }
 KNOWLEDGE_TYPES = {t for t in TYPES if t != "Reference"}

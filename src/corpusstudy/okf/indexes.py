@@ -17,6 +17,7 @@ SECTIONS: dict[str, tuple[str, str]] = {
     "people": ("People", "Biblical persons"),
     "doctrines": ("Doctrines", "Doctrines, framed from the Reformed view"),
     "events": ("Events", "Events of redemptive history"),
+    "parables": ("Parables", "The parables of Jesus"),
     "references": ("References", "Source works the knowledge is drawn from"),
     "references/sources": ("Sources", "Public-domain Bible texts and commentaries"),
 }

@@ -27,6 +27,7 @@ TEMPLATES: dict[str, list[str]] = {
     "Person": ["Summary", "Life", "Significance", "Key passages"],
     "Doctrine": ["Definition", "Reformed view", "Where other traditions differ", "Key passages"],
     "Event": ["Summary", "Context", "Significance", "Key passages"],
+    "Parable": ["Summary", "Setting", "Meaning", "Interpretive notes", "Key passages"],
 }
 
 

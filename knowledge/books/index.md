@@ -9,4 +9,5 @@
 * [John](john.md) - The fourth Gospel, written so that readers may believe that Jesus is the Christ, the eternal Word made flesh, and have life through his name. (draft)
 * [Matthew](matthew.md) - The first Gospel, presenting Jesus as the promised Messiah, son of David and son of Abraham, who fulfils the Scriptures and proclaims the kingdom of heaven. (draft)
 * [Psalms](psalms.md) - Israel's inspired book of prayers and praises, used by the church in every age and read in the New Testament as speaking of Christ. (draft)
+* [Revelation](revelation.md) - John's prophecy from Patmos, showing the risen Christ among his churches, the slain Lamb on the throne, his victory over Satan and the persecuting powers, and the coming new heaven and new earth. (draft)
 * [Romans](romans.md) - Paul's letter to the church at Rome, setting out the gospel of God's righteousness revealed in Christ and received by faith, for Jew and Gentile alike. (draft)

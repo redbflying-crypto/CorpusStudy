@@ -46,9 +46,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#x-p32
     title: Calvin on Acts 2:23
 title_fr: Les Actes des apôtres
-aliases: [Acts of the Apostles, The Acts, Ac, Pentecost, early church, Luke-Acts, Theophilus]
-aliases_fr: [Actes des apôtres, les Actes, Ac, Pentecôte, Église primitive, Théophile]
-key_passages: ["Acts 1:8", "Acts 2", "Acts 9:1-19", "Acts 10", "Acts 15:1-29", "Acts 17:22-31", "Acts 28:30-31"]
+aliases: [Acts of the Apostles, The Acts, Ac, early church, Luke-Acts, Theophilus]
+aliases_fr: [Actes des apôtres, les Actes, Ac, Église primitive, Théophile]
+key_passages: [Acts 1:8, Acts 2, Acts 9:1-19, Acts 10, Acts 15:1-29, Acts 17:22-31, Acts 28:30-31]
 tradition: reformed
 other_views: true
 ---

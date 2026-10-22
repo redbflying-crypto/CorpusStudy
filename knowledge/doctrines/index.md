@@ -7,3 +7,5 @@
 * [Sanctification](sanctification.md) - The Holy Spirit's work, grounded in union with Christ, of setting believers apart to God and making them progressively holy, never complete in this life. (draft)
 * [The Atonement](atonement.md) - Christ's death as a sacrifice that bore the penalty of sin in the place of sinners, satisfying God's justice and reconciling them to him. (draft)
 * [The Authority of Scripture](scripture.md) - The Bible, inspired by God, is the supreme, sufficient and clear rule of faith and life, known as God's word by the inner witness of the Holy Spirit. (draft)
+* [The Incarnation](incarnation.md) - The eternal Son of God taking a true human nature, so that Jesus Christ is true God and true man in one person. (draft)
+* [The Trinity](trinity.md) - The one true God existing eternally as three persons, the Father, the Son and the Holy Spirit. (draft)

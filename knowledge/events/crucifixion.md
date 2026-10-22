@@ -49,9 +49,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#vii-p60
     title: Calvin on Isaiah 53:6
 title_fr: La crucifixion
-aliases: [cross, the cross, death of Christ, passion, Calvary, Golgotha, Good Friday, crucified]
+aliases: [the cross, death of Christ, Calvary, Golgotha, Good Friday, crucified]
 aliases_fr: [la croix, mort du Christ, la passion, Calvaire, Golgotha, Vendredi saint, crucifié]
-key_passages: ["Matt 27:27-56", "Mark 15:16-41", "Luke 23:26-49", "John 19:16-37", "Isa 53", "Ps 22", "Gal 3:13", "1 Pet 2:24"]
+key_passages: [Matt 27:27-56, Mark 15:16-41, Luke 23:26-49, John 19:16-37, Isa 53, Ps 22, Gal 3:13, 1 Pet 2:24]
 tradition: reformed
 other_views: true
 ---
