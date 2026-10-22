@@ -35,18 +35,28 @@ def _book_for(osis: str) -> Book:
 
 
 class VerseRef(_Model):
-    """A single verse, e.g. Rom 8:28."""
+    """A single verse, e.g. Rom 8:28.
+
+    Verse 0 is an unnumbered psalm title (KJV style); in LSG 1910 titles are numbered verses.
+    """
 
     book: str = Field(description="OSIS book code, e.g. 'Rom'")
     chapter: int = Field(ge=1)
-    verse: int = Field(ge=1)
+    verse: int = Field(ge=0)
 
     @model_validator(mode="after")
     def _in_canon(self) -> Self:
         book = _book_for(self.book)
         if self.chapter > book.chapters:
             raise ValueError(f"{book.name_en} has {book.chapters} chapters, not {self.chapter}")
+        if self.verse == 0 and self.book != "Ps":
+            raise ValueError("verse 0 (a psalm title) exists only in Psalms")
         return self
+
+    @classmethod
+    def from_osis(cls, osis: str) -> VerseRef:
+        book, chapter, verse = osis.split(".")
+        return cls(book=book, chapter=int(chapter), verse=int(verse))
 
     @property
     def key(self) -> tuple[int, int, int]:
@@ -57,8 +67,11 @@ class VerseRef(_Model):
         return f"{self.book}.{self.chapter}.{self.verse}"
 
     def display(self, language: Language = Language.EN) -> str:
+        name = BOOKS_BY_OSIS[self.book].name(language)
+        if self.verse == 0:
+            return f"{name} {self.chapter} ({'title' if language == Language.EN else 'titre'})"
         sep = ":" if language == Language.EN else "."
-        return f"{BOOKS_BY_OSIS[self.book].name(language)} {self.chapter}{sep}{self.verse}"
+        return f"{name} {self.chapter}{sep}{self.verse}"
 
 
 class PassageRef(_Model):
@@ -70,9 +83,9 @@ class PassageRef(_Model):
 
     book: str
     start_chapter: int = Field(ge=1)
-    start_verse: int | None = Field(default=None, ge=1)
+    start_verse: int | None = Field(default=None, ge=0)
     end_chapter: int = Field(ge=1)
-    end_verse: int | None = Field(default=None, ge=1)
+    end_verse: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="before")
     @classmethod
@@ -95,6 +108,8 @@ class PassageRef(_Model):
                 raise ValueError(f"{book.name_en} has {book.chapters} chapters, not {ch}")
         if self.start_verse is None and self.end_verse is not None:
             raise ValueError("a passage cannot end on a verse if it starts on a whole chapter")
+        if 0 in (self.start_verse, self.end_verse) and self.book != "Ps":
+            raise ValueError("verse 0 (a psalm title) exists only in Psalms")
         if (self.end_chapter, self.end_verse or 0) < (self.start_chapter, self.start_verse or 0):
             raise ValueError("passage ends before it starts")
         return self
