@@ -67,16 +67,17 @@ def check_quotes(
             segment = paragraph[start : m.start()]
             start = m.end()
             ids = re.findall(r"\[\^([^\]\s]+)\]", m.group(1))
-            texts = []
+            texts, missing = [], False
             for sid in ids:
                 if sid not in sources:
                     continue
                 text = resolve(sources[sid], c.id)
                 if text is None:
                     unresolved.add(sid)
+                    missing = True
                 else:
                     texts.append(normalise(text))
-            if not texts:
+            if missing or not texts:  # a quotation may come from the source we cannot read
                 continue
             for qm in _QUOTE.finditer(segment):
                 quote = qm.group(1) or qm.group(2)

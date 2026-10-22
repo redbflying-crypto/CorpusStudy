@@ -77,6 +77,12 @@ def test_unresolvable_source_is_a_warning_not_an_error():
     assert "quotes unchecked" in issues[0].message
 
 
+def test_group_with_an_unresolvable_source_is_not_checked():
+    # Calvin's text is unavailable, so the quotation may be his: a warning, not an error.
+    issues = check_quotes(concept('"words only Calvin wrote"[^kjv-rom5][^calvin]'), resolve)
+    assert [i.level for i in issues] == ["warning"]
+
+
 def test_footnote_definitions_are_not_checked_and_short_fragments_ignored():
     body = 'A "no" here.[^kjv-rom5]\n\n[^kjv-rom5]: "Not a real quote" in a definition\n'
     assert errors(body) == []
