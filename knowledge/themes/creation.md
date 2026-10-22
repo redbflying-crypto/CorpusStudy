@@ -52,9 +52,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#xii-p174
     title: Calvin on Genesis 1:16
 title_fr: La création
-aliases: [creation, creator, created, make, made, image of God, new creation, ex nihilo]
-aliases_fr: [création, créateur, créé, créa, image de Dieu, nouvelle création, ex nihilo]
-key_passages: ["Gen 1", "Gen 2:1-7", "Ps 19:1-6", "Ps 33:6-9", "Ps 104", "John 1:1-3", "Rom 1:20", "Rom 8:19-23", "Col 1:16-17", "Heb 11:3", "Rev 4:11", "Rev 21:1-5"]
+aliases: [creation, creator, image of God, new creation, ex nihilo]
+aliases_fr: [création, créateur, image de Dieu, nouvelle création, ex nihilo]
+key_passages: [Gen 1, Gen 2:1-7, Ps 19:1-6, Ps 33:6-9, Ps 104, John 1:1-3, Rom 1:20, Rom 8:19-23, Col 1:16-17, Heb 11:3, Rev 4:11, Rev 21:1-5]
 tradition: reformed
 other_views: false
 ---

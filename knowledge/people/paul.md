@@ -67,9 +67,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#viii-p84
     title: Calvin on Acts 16:22
 title_fr: Paul
-aliases: [Saul, Saul of Tarsus, the apostle Paul, apostle to the Gentiles, Pauline epistles]
-aliases_fr: [Saül, Saul de Tarse, l'apôtre Paul, apôtre des païens, épîtres de Paul]
-key_passages: ["Acts 9:1-22", "Acts 13:1-3", "Acts 22:3-21", "Gal 1:11-24", "Phil 3:4-14", "1 Cor 15:8-10", "Rom 1:16-17", "2 Tim 4:6-8"]
+aliases: [Saul of Tarsus, the apostle Paul, apostle to the Gentiles, Pauline epistles]
+aliases_fr: [Saul de Tarse, l'apôtre Paul, apôtre des païens, épîtres de Paul]
+key_passages: [Acts 9:1-22, Acts 13:1-3, Acts 22:3-21, Gal 1:11-24, Phil 3:4-14, 1 Cor 15:8-10, Rom 1:16-17, 2 Tim 4:6-8]
 tradition: reformed
 other_views: false
 ---

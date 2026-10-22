@@ -52,9 +52,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#xi-p60
     title: Calvin on Ephesians 1:4-6
 title_fr: La sanctification
-aliases: [sanctification, sanctified, sanctify, holiness, mortification, new obedience, growth in grace, union with Christ]
-aliases_fr: [sanctification, sanctifié, sanctifiés, sanctifier, sainteté, mortification, croissance dans la grâce, union avec Christ]
-key_passages: ["Rom 6:1-14", "Rom 7:14-25", "Rom 12:1-2", "1 Cor 6:11", "2 Cor 3:18", "Phil 2:12-13", "1 Thess 4:3-8", "1 Thess 5:23", "Heb 12:14"]
+aliases: [sanctification, sanctified, sanctify, mortification, new obedience, growth in grace, union with Christ]
+aliases_fr: [sanctification, sanctifié, sanctifiés, sanctifier, mortification, croissance dans la grâce, union avec Christ]
+key_passages: [Rom 6:1-14, Rom 7:14-25, Rom 12:1-2, 1 Cor 6:11, 2 Cor 3:18, Phil 2:12-13, 1 Thess 4:3-8, 1 Thess 5:23, Heb 12:14]
 tradition: reformed
 other_views: true
 ---

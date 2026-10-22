@@ -49,9 +49,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#vi-p1
     title: Calvin on Isaiah 6:1-5
 title_fr: Le culte
-aliases: [worship, worshipper, adoration, praise, service, liturgy, regulative principle, idolatry]
-aliases_fr: [culte, adoration, adorer, louange, service, liturgie, principe régulateur, idolâtrie]
-key_passages: ["Exod 20:3-6", "Lev 10:1-3", "Deut 12:32", "Ps 95:1-7", "Isa 6:1-8", "Mic 6:6-8", "Matt 15:8-9", "John 4:19-24", "Rom 12:1-2", "Col 2:18-23", "Heb 12:28-29"]
+aliases: [worship, worshipper, adoration, praise, liturgy, regulative principle, idolatry]
+aliases_fr: [culte, adoration, adorer, louange, liturgie, principe régulateur, idolâtrie]
+key_passages: [Exod 20:3-6, Lev 10:1-3, Deut 12:32, Ps 95:1-7, Isa 6:1-8, Mic 6:6-8, Matt 15:8-9, John 4:19-24, Rom 12:1-2, Col 2:18-23, Heb 12:28-29]
 tradition: reformed
 other_views: true
 ---

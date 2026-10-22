@@ -34,9 +34,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#v-p42
     title: Calvin on 1 John 4:1
 title_fr: L'autorité de l'Écriture
-aliases: [scripture, scriptures, Bible, word of God, inspiration, inspired, sola scriptura, sufficiency, clarity, perspicuity, inner witness of the Spirit, canon]
-aliases_fr: [Écriture, Écritures, Bible, parole de Dieu, inspiration, inspirée, sola scriptura, suffisance, clarté, témoignage intérieur du Saint-Esprit, canon]
-key_passages: ["2 Tim 3:14-17", "2 Pet 1:19-21", "Ps 19:7-11", "Ps 119:105", "Ps 119:130", "Isa 8:20", "Mark 7:6-13", "John 10:35", "1 Thess 2:13"]
+aliases: [scripture, scriptures, Bible, word of God, inspiration, sola scriptura, perspicuity, inner witness of the Spirit, canon]
+aliases_fr: [Écriture, Écritures, Bible, parole de Dieu, inspiration, sola scriptura, témoignage intérieur du Saint-Esprit, canon]
+key_passages: [2 Tim 3:14-17, 2 Pet 1:19-21, Ps 19:7-11, Ps 119:105, Ps 119:130, Isa 8:20, Mark 7:6-13, John 10:35, 1 Thess 2:13]
 tradition: reformed
 other_views: true
 ---

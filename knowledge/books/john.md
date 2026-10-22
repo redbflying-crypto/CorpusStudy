@@ -40,9 +40,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#viii-p1
     title: Calvin on John 3:16
 title_fr: Jean
-aliases: [Gospel of John, Gospel according to John, fourth gospel, Saint John, Jn, beloved disciple, the Word, Logos]
-aliases_fr: [Évangile selon Jean, évangile de Jean, quatrième évangile, saint Jean, Jn, disciple bien-aimé, la Parole, le Verbe]
-key_passages: ["John 1:1-18", "John 3:1-21", "John 6:35-40", "John 10:27-30", "John 14:6", "John 17", "John 20:30-31"]
+aliases: [Gospel of John, Gospel according to John, fourth gospel, Saint John, Jn, beloved disciple, Logos]
+aliases_fr: [Évangile selon Jean, évangile de Jean, quatrième évangile, saint Jean, Jn, disciple bien-aimé, le Verbe]
+key_passages: [John 1:1-18, John 3:1-21, John 6:35-40, John 10:27-30, John 14:6, John 17, John 20:30-31]
 tradition: reformed
 other_views: true
 ---

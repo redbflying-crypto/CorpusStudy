@@ -49,9 +49,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#xi-p38
     title: Calvin on Romans 11:7
 title_fr: L'élection et la prédestination
-aliases: [election, elect, chosen, predestination, predestinate, predestinated, foreknow, unconditional election, decree, reprobation]
-aliases_fr: [élection, élus, élu, choisis, prédestination, prédestinés, prescience, élection inconditionnelle, décret, réprobation]
-key_passages: ["Rom 8:28-30", "Rom 9:6-24", "Eph 1:3-11", "John 6:37-44", "Acts 13:48", "2 Tim 1:9"]
+aliases: [election, elect, chosen, predestination, predestinate, predestinated, foreknow, unconditional election, reprobation]
+aliases_fr: [élection, élus, élu, choisis, prédestination, prédestinés, prescience, élection inconditionnelle, réprobation]
+key_passages: [Rom 8:28-30, Rom 9:6-24, Eph 1:3-11, John 6:37-44, Acts 13:48, 2 Tim 1:9]
 tradition: reformed
 other_views: true
 ---

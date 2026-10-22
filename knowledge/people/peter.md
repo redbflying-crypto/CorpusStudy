@@ -55,9 +55,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#xiii-p130
     title: Calvin on John 20:23
 title_fr: Pierre
-aliases: [Simon Peter, Simon, Cephas, Simon Barjona, the rock, keys of the kingdom]
-aliases_fr: [Simon Pierre, Simon, Céphas, la pierre, le roc, clés du royaume]
-key_passages: ["Matt 4:18-20", "Matt 14:22-33", "Matt 16:13-23", "Matt 26:31-35", "Matt 26:69-75", "John 21:15-19", "Acts 2:14-41", "Acts 10:1-48", "Gal 2:11-14", "1 Pet 2:4-8"]
+aliases: [Simon Peter, Cephas, Simon Barjona, keys of the kingdom]
+aliases_fr: [Simon Pierre, Céphas, clés du royaume]
+key_passages: [Matt 4:18-20, Matt 14:22-33, Matt 16:13-23, Matt 26:31-35, Matt 26:69-75, John 21:15-19, Acts 2:14-41, Acts 10:1-48, Gal 2:11-14, 1 Pet 2:4-8]
 tradition: reformed
 other_views: true
 ---

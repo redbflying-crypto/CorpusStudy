@@ -46,9 +46,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#v-p63
     title: Calvin on 1 Corinthians 10:11
 title_fr: L'alliance
-aliases: [covenant, covenants, new covenant, new testament, covenant of grace, covenant of works, everlasting covenant]
+aliases: [covenant, covenants, new covenant, covenant of grace, covenant of works, everlasting covenant]
 aliases_fr: [alliance, alliances, nouvelle alliance, alliance de grâce, alliance des œuvres, alliance éternelle]
-key_passages: ["Gen 9:8-17", "Gen 15", "Gen 17:1-14", "Exod 19:5-6", "Exod 24:8", "2 Sam 7:12-16", "Jer 31:31-34", "Luke 22:20", "Gal 3:15-18", "Heb 8"]
+key_passages: [Gen 9:8-17, Gen 15, Gen 17:1-14, Exod 19:5-6, Exod 24:8, 2 Sam 7:12-16, Jer 31:31-34, Luke 22:20, Gal 3:15-18, Heb 8]
 tradition: reformed
 other_views: true
 ---

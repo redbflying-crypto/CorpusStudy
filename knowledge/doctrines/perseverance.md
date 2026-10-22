@@ -56,8 +56,8 @@ sources:
     title: Calvin on John 15:9
 title_fr: La persévérance des saints
 aliases: [perseverance, persevere, preservation, eternal security, assurance, falling away, apostasy, kept by the power of God]
-aliases_fr: [persévérance, persévérer, préservation, sécurité éternelle, assurance du salut, chute, apostasie, gardés par la puissance de Dieu]
-key_passages: ["John 10:27-29", "Rom 8:28-39", "Phil 1:6", "1 Pet 1:3-5", "Heb 6:4-12", "1 John 2:19", "Jude 1:24-25"]
+aliases_fr: [persévérance, persévérer, préservation, sécurité éternelle, assurance du salut, apostasie, gardés par la puissance de Dieu]
+key_passages: [John 10:27-29, Rom 8:28-39, Phil 1:6, 1 Pet 1:3-5, Heb 6:4-12, 1 John 2:19, Jude 1:24-25]
 tradition: reformed
 other_views: true
 ---

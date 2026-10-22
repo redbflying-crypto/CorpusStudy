@@ -49,9 +49,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#xi-p60
     title: Calvin on Ephesians 1:4-6
 title_fr: La sainteté
-aliases: [holiness, holy, sanctify, sanctified, consecration, saints, Holy Holy Holy]
-aliases_fr: [sainteté, saint, sainte, saints, sanctifier, sanctifié, consécration, Saint Saint Saint]
-key_passages: ["Exod 3:5", "Exod 15:11", "Lev 11:44", "Lev 19:2", "Isa 6:1-8", "Rom 12:1-2", "2 Cor 7:1", "Eph 1:4", "Heb 12:10-14", "1 Pet 1:15-16", "Rev 4:8"]
+aliases: [holiness, consecration, Holy Holy Holy]
+aliases_fr: [sainteté, consécration, Saint Saint Saint]
+key_passages: [Exod 3:5, Exod 15:11, Lev 11:44, Lev 19:2, Isa 6:1-8, Rom 12:1-2, 2 Cor 7:1, Eph 1:4, Heb 12:10-14, 1 Pet 1:15-16, Rev 4:8]
 tradition: reformed
 other_views: true
 ---

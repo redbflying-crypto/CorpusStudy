@@ -64,9 +64,9 @@ sources:
     resource: /references/sources/calvin-lcc.md#ix-p91
     title: Calvin on Hebrews 11:27
 title_fr: Moïse
-aliases: [lawgiver, man of God, servant of the LORD, Mosaic law]
-aliases_fr: [législateur, homme de Dieu, serviteur de l'Éternel, loi de Moïse]
-key_passages: ["Exod 2:1-15", "Exod 3:1-15", "Exod 14:13-31", "Exod 20:1-21", "Num 20:1-13", "Deut 18:15-22", "Deut 34:1-12", "John 1:17", "Heb 3:1-6", "Heb 11:23-29"]
+aliases: [lawgiver, Mosaic law]
+aliases_fr: [législateur, loi de Moïse]
+key_passages: [Exod 2:1-15, Exod 3:1-15, Exod 14:13-31, Exod 20:1-21, Num 20:1-13, Deut 18:15-22, Deut 34:1-12, John 1:17, Heb 3:1-6, Heb 11:23-29]
 tradition: reformed
 other_views: false
 ---

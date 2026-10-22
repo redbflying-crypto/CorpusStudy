@@ -1,6 +1,7 @@
 # Knowledge Update Log
 
 ## 2026-10-22
+* **Update**: Removed ambiguous or generic aliases that misrouted questions (for example Saul for Paul, Simon for Peter, holy for Holiness, made for Creation) from 12 concepts: [Paul](/people/paul.md), [Peter](/people/peter.md), [Moses](/people/moses.md), [Creation](/themes/creation.md), [Worship](/themes/worship.md), [Covenant](/themes/covenant.md), [Election](/doctrines/election.md), [Scripture](/doctrines/scripture.md), [John](/books/john.md), [Holiness](/themes/holiness.md), [Sanctification](/doctrines/sanctification.md), [Perseverance](/doctrines/perseverance.md).
 * **Creation**: Drafted 8 person concepts for review: [Abraham](/people/abraham.md), [Adam](/people/adam.md), [David](/people/david.md), [Elijah](/people/elijah.md), [John the Baptist](/people/john-the-baptist.md), [Moses](/people/moses.md), [Paul](/people/paul.md), [Peter](/people/peter.md).
 * **Creation**: Drafted 4 event concepts for review: [The Crucifixion](/events/crucifixion.md), [The Exodus](/events/exodus.md), [The Fall](/events/fall.md), [The Resurrection of Christ](/events/resurrection.md).
 * **Creation**: Drafted 8 theme concepts for review: [Covenant](/themes/covenant.md), [Creation](/themes/creation.md), [Grace](/themes/grace.md), [Holiness](/themes/holiness.md), [Law and Gospel](/themes/law-and-gospel.md), [Sin](/themes/sin.md), [The Kingdom of God](/themes/kingdom-of-god.md), [Worship](/themes/worship.md).
