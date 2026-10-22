@@ -33,6 +33,7 @@ class CommentarySource:
     format: str  # "ccel-thml" | "ccel-text"
     filename: str
     title: str
+    description: str  # one sentence, used in the OKF reference concept
     edition: str
     license: str
     origin: str  # where to get the file by hand
@@ -49,6 +50,7 @@ COMMENTARY_SOURCES: dict[str, CommentarySource] = {
         format="ccel-thml",
         filename="calcom.doc",
         title="Calvin: Commentaries (selections arranged by subject)",
+        description="Selections from Calvin's commentaries arranged by subject.",
         edition="Library of Christian Classics XXIII, tr. and ed. Joseph Haroutunian, 1958",
         license="Public domain (CCEL DC.Rights)",
         origin="https://ccel.org/ccel/calvin/calcom (Word / ThML download)",
@@ -64,6 +66,8 @@ COMMENTARY_SOURCES: dict[str, CommentarySource] = {
         format="ccel-text",
         filename="mhcc.txt",
         title="Matthew Henry's Concise Commentary on the Bible",
+        description="Matthew Henry's one-volume abridgement of his Commentary on the Whole "
+        "Bible, chapter by chapter.",
         edition="One-volume abridgement of the Commentary on the Whole Bible (CCEL text, "
         "converted from the CCEL PDF)",
         license="Text public domain; CCEL's PDF edition free for non-commercial use",

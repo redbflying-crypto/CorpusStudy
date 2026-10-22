@@ -4,13 +4,12 @@ The models enforce the project's ground rules up front:
 - references must point at a real book and chapter;
 - Scripture text always carries a public-domain translation, commentary never does,
   so commentary can never be passed off as Scripture;
-- a knowledge file marked as reviewed must name its reviewer and review date.
+- knowledge chunks name the OKF concept they come from (see `corpusstudy.okf`).
 """
 
 from __future__ import annotations
 
 import re
-from datetime import date
 from enum import StrEnum
 from typing import Any, Self
 
@@ -264,7 +263,9 @@ class Chunk(_Model):
     refs: list[PassageRef] = Field(default_factory=list)
     translation: Translation | None = None
     work: str | None = Field(default=None, description="Commentary key, e.g. 'calvin'")
-    knowledge_id: str | None = None
+    concept_id: str | None = Field(
+        default=None, description="OKF concept id (bundle path without .md), e.g. doctrines/grace"
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -285,88 +286,9 @@ class Chunk(_Model):
         if st in (SourceType.COMMENTARY, SourceType.CROSS_REFERENCE):
             if self.work not in ALLOWED_COMMENTARIES:
                 raise ValueError(f"{st} chunks need an approved public-domain work: {self.work!r}")
-        if st == SourceType.KNOWLEDGE and not self.knowledge_id:
-            raise ValueError("knowledge chunks must name their knowledge file")
+        if st == SourceType.KNOWLEDGE and not self.concept_id:
+            raise ValueError("knowledge chunks must name their OKF concept")
         return self
-
-
-# --------------------------------------------------------------------------- knowledge layer
-
-
-class KnowledgeType(StrEnum):
-    BOOK = "book"
-    THEME = "theme"
-    PERSON = "person"
-    DOCTRINE = "doctrine"
-    EVENT = "event"
-
-
-class ReviewStatus(StrEnum):
-    DRAFT = "draft"
-    REVIEWED = "reviewed"
-
-
-_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-
-
-class KnowledgeFrontmatter(_Model):
-    """YAML frontmatter of a curated Markdown knowledge file (Obsidian-style [[wikilinks]])."""
-
-    id: str
-    type: KnowledgeType
-    title: str = Field(min_length=1)
-    title_fr: str | None = None
-    aliases: list[str] = Field(default_factory=list)
-    key_passages: list[PassageRef] = Field(default_factory=list)
-    related: list[str] = Field(default_factory=list, description="ids of linked knowledge files")
-    tradition: Stance = Stance.REFORMED
-    other_views: bool = Field(
-        default=False, description="True if the file notes where other traditions differ"
-    )
-    sources: list[str] = Field(default_factory=list)
-    review_status: ReviewStatus = ReviewStatus.DRAFT
-    reviewed_by: str | None = None
-    reviewed_on: date | None = None
-
-    @field_validator("id", "related", mode="after")
-    @classmethod
-    def _slugs(cls, v: str | list[str]) -> str | list[str]:
-        for s in [v] if isinstance(v, str) else v:
-            if not _SLUG_RE.match(s):
-                raise ValueError(f"{s!r} is not a lowercase-hyphenated slug")
-        return v
-
-    @field_validator("key_passages", mode="before")
-    @classmethod
-    def _parse_passages(cls, v: Any) -> Any:
-        if isinstance(v, list):
-            return [parse_reference(p) if isinstance(p, str) else p for p in v]
-        return v
-
-    @field_validator("sources")
-    @classmethod
-    def _approved_sources(cls, v: list[str]) -> list[str]:
-        unknown = [s for s in v if s not in ALLOWED_COMMENTARIES]
-        if unknown:
-            raise ValueError(f"not an approved public-domain source: {unknown}")
-        return v
-
-    @model_validator(mode="after")
-    def _review(self) -> Self:
-        if self.review_status == ReviewStatus.REVIEWED:
-            if not self.reviewed_by or self.reviewed_on is None:
-                raise ValueError("a reviewed knowledge file must name reviewed_by and reviewed_on")
-        return self
-
-
-class KnowledgeFile(_Model):
-    frontmatter: KnowledgeFrontmatter
-    body: str
-    path: str
-
-    @property
-    def id(self) -> str:
-        return self.frontmatter.id
 
 
 # --------------------------------------------------------------------------- retrieval / answers

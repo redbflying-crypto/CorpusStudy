@@ -123,3 +123,14 @@ def test_imported_calvin():
     for r in rows:
         for osis in r["refs"] + r["mentions"]:
             PassageRef.from_osis(osis)
+
+
+@pytest.mark.skipif(not PROCESSED.exists(), reason="Calvin not imported")
+def test_commentary_store_lookup():
+    from corpusstudy.commentary import CommentaryStore
+
+    store = CommentaryStore.load("calvin-lcc")
+    excerpt = store.get("vi-p90")
+    assert excerpt is not None and excerpt.refs == ("Gen.1.1",)
+    assert excerpt.local_id == "vi-p90" and excerpt.work == "calvin"
+    assert store.get("no-such-paragraph") is None

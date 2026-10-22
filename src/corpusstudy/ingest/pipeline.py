@@ -26,6 +26,8 @@ from corpusstudy.ingest.osis import parse_osis
 from corpusstudy.ingest.raw import RawVerse
 from corpusstudy.ingest.sources import RESOURCES, SOURCES, Source, fetch, sha256
 from corpusstudy.ingest.usfm import parse_usfm
+from corpusstudy.okf.indexes import add_log_entry, write_indexes
+from corpusstudy.okf.references import write_reference_concepts
 
 log = logging.getLogger(__name__)
 
@@ -258,4 +260,17 @@ def run(
 
     if parsed or commentary_reports:
         _dump(manifest, out_dir / "manifest.json")
+        if write_resources:
+            update_knowledge_references(out_dir / "manifest.json")
     return reports, commentary_reports
+
+
+def update_knowledge_references(manifest_path: Path) -> list[str]:
+    """Refresh the OKF source concepts (knowledge/references/sources) and the indexes."""
+    root = get_settings().knowledge_dir
+    written = write_reference_concepts(root, manifest_path)
+    for rel in written:
+        add_log_entry(root, "Update", f"Regenerated source reference [{rel}](/{rel}).")
+    if written:
+        write_indexes(root)
+    return written

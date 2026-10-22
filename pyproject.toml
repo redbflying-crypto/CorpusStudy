@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "corpusstudy"
 version = "0.1.0"
-description = "Personal Bible study chatbot: curated Markdown knowledge layer + hybrid RAG over public-domain texts (KJV, Louis Segond 1910)."
+description = "Personal Bible study chatbot: curated OKF knowledge bundle + hybrid RAG over public-domain texts (KJV, Louis Segond 1910)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }

@@ -1,5 +1,3 @@
-from datetime import date
-
 import pytest
 from pydantic import ValidationError
 
@@ -9,11 +7,8 @@ from corpusstudy.schemas import (
     ChatRequest,
     Chunk,
     Citation,
-    KnowledgeFrontmatter,
-    KnowledgeType,
     RetrievalResult,
     Retriever,
-    ReviewStatus,
     Route,
     SourceNote,
     SourceType,
@@ -97,9 +92,17 @@ def test_commentary_must_be_public_domain():
         )
 
 
-def test_knowledge_chunk_names_its_file():
+def test_knowledge_chunk_names_its_okf_concept():
     with pytest.raises(ValidationError):
         Chunk(id="k1", source_type=SourceType.KNOWLEDGE, text="...", language=Language.EN)
+    chunk = Chunk(
+        id="doctrines/grace#definition",
+        source_type=SourceType.KNOWLEDGE,
+        text="...",
+        language=Language.EN,
+        concept_id="doctrines/grace",
+    )
+    assert chunk.concept_id == "doctrines/grace"
 
 
 def test_models_are_frozen_and_strict():
@@ -108,52 +111,6 @@ def test_models_are_frozen_and_strict():
         c.text = "changed"
     with pytest.raises(ValidationError):
         scripture_chunk(unexpected="field")
-
-
-FRONTMATTER = dict(
-    id="justification",
-    type="doctrine",
-    title="Justification by Faith",
-    title_fr="La justification par la foi",
-    key_passages=["Rom 3:21-26", "Romains 5.1", "Gal 2:16"],
-    related=["faith", "grace"],
-    sources=["calvin", "henry"],
-)
-
-
-def test_frontmatter_parses_passages():
-    fm = KnowledgeFrontmatter(**FRONTMATTER)
-    assert fm.type == KnowledgeType.DOCTRINE
-    assert [p.osis for p in fm.key_passages] == [
-        "Rom.3.21-Rom.3.26",
-        "Rom.5.1",
-        "Gal.2.16",
-    ]
-    assert fm.review_status == ReviewStatus.DRAFT
-
-
-def test_frontmatter_rejects_bad_passage():
-    with pytest.raises(ValidationError):
-        KnowledgeFrontmatter(**FRONTMATTER | {"key_passages": ["Rom 30:1"]})
-
-
-def test_frontmatter_rejects_bad_slug_and_source():
-    with pytest.raises(ValidationError):
-        KnowledgeFrontmatter(**FRONTMATTER | {"id": "Justification By Faith"})
-    with pytest.raises(ValidationError):
-        KnowledgeFrontmatter(**FRONTMATTER | {"related": ["Grace"]})
-    with pytest.raises(ValidationError):
-        KnowledgeFrontmatter(**FRONTMATTER | {"sources": ["wikipedia"]})
-
-
-def test_reviewed_file_must_name_reviewer():
-    with pytest.raises(ValidationError):
-        KnowledgeFrontmatter(**FRONTMATTER | {"review_status": "reviewed"})
-    fm = KnowledgeFrontmatter(
-        **FRONTMATTER
-        | {"review_status": "reviewed", "reviewed_by": "D. Nguyen", "reviewed_on": "2026-10-22"}
-    )
-    assert fm.reviewed_on == date(2026, 10, 22)
 
 
 def test_retrieval_result():

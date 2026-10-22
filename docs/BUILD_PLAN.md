@@ -126,24 +126,34 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
   - New: your reviewer id, the review channel, draft visibility, the embeddings route, and the Treasury of Scripture Knowledge.
 
 ### Phase 1: Skeleton, config, canon and schemas
-- **Status:** done; one amendment needed.
+- **Status:** done, and aligned with OKF.
 - **Reused:**
   - Project layout and config.
   - The 66-book table with English and French names.
   - The English/French reference parser.
   - Verse, chunk, answer and chat models.
-- **Change (Claude):** replace `KnowledgeFrontmatter` with OKF models. That means a tolerant `OkfConcept`, which keeps unknown keys, plus a strict `CorpusConcept` profile. `review_status`, `reviewed_by` and the `id` field are removed in favour of `generated`, `verified`, `status` and path-based identity.
+- **Changed (done):**
+  - The old knowledge schema (`KnowledgeFrontmatter`, with its `id`, fixed type list, review fields and strict key checking) is removed.
+  - It is replaced by `corpusstudy.okf`: tolerant OKF v0.2 models, plus a strict producer profile for our own concepts.
+  - Knowledge chunks now name their OKF concept by path (`Chunk.concept_id`).
 - **Exit:** the tests pass.
 
 ### Phase 2: Corpus ingestion
-- **Status:** done.
+- **Status:** done, and published to the OKF bundle.
+- **OKF link-up:**
+  - Each source work is a `Reference` concept in `knowledge/references/sources/`, generated from the ingestion manifest by every run and stamped `verified: process:ingest` (machine-confirmed).
+  - Excerpt ids are citable anchors, e.g. `/references/sources/henry-concise.md#Rom.3.21-Rom.3.31`.
+  - `corpusstudy.commentary` looks excerpts up by id.
 - **KJV:** 31,102 verses plus 116 psalm titles.
 - **Louis Segond 1910:** 31,170 verses, with the KJV↔LSG verse map.
 - **Calvin:** 250 excerpts (LCC XXIII).
 - **Matthew Henry:** 5,164 excerpts (*Concise Commentary*), covering every KJV verse.
 - **Pending:** the Treasury of Scripture Knowledge, waiting on your licence decision (only a CC BY 4.0 edition is reachable).
 
-### Phase 3: OKF bundle foundation (new)
+### Phase 3: OKF bundle foundation
+- **Status:** mostly done.
+  - **Done:** the loader, OKF conformance checks, producer profile, `index.md` and `log.md` generation, the source references, the `python -m corpusstudy.okf check|index|references` commands, and the restructured `knowledge/` bundle.
+  - **Remaining:** the `verify` command (your sign-off stamp), a concept link graph for retrieval, and a `log` command.
 - **Claude:**
   - `corpusstudy/okf/`: a loader (frontmatter, body, Markdown links, footnotes), a graph of concept links, and trust-tier and staleness helpers.
   - Generators for `index.md` (per directory, with descriptions from frontmatter) and `log.md` (dated entries).
@@ -219,10 +229,10 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 
 | Phase | Scope | Who | Status |
 |---|---|---|---|
-| 0 | Decisions | You | ✅ Done; 5 new OKF questions |
-| 1 | Skeleton, config, canon, schemas | Claude | ✅ Done; OKF schema amendment |
-| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done; TSK pending |
-| 3 | OKF bundle foundation: loader, validator, index/log, CLI, references | Claude | Next |
+| 0 | Decisions | You | ✅ Done; 5 new OKF questions open |
+| 1 | Skeleton, config, canon, schemas | Claude | ✅ Done, OKF-aligned |
+| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references; TSK pending |
+| 3 | OKF bundle foundation: loader, validator, index/log, CLI, references | Claude | 🟡 Mostly done; `verify` stamp and link graph remain |
 | 4 | Chunking, FTS5 + vectors, hybrid and OKF-aware retrieval | Claude | — |
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | — |
 | 6 | Router, generation, citation and provenance validator | Claude | — |

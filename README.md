@@ -13,13 +13,13 @@ A personal Bible study chatbot. It combines a curated Markdown knowledge layer (
 | Stance | Protestant Evangelical, Reformed (Calvinist). Interpretive answers are labelled as the Reformed view. Where it matters, the answer briefly notes how other traditions differ, so tradition is never presented as Scripture. |
 | Audience | Personal use. |
 | Hosting | Local, with Docker. |
-| Knowledge format | Google Open Knowledge Format (OKF) v0.2: a curated, version-controlled bundle of Markdown concepts with YAML frontmatter, provenance and human review. Adopted in Phase 3; see [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md). |
+| Knowledge format | Google Open Knowledge Format (OKF) v0.2: a curated, version-controlled bundle of Markdown concepts with YAML frontmatter, provenance and human review. See [`docs/KNOWLEDGE_FORMAT.md`](docs/KNOWLEDGE_FORMAT.md). |
 
 ## Architecture
 
 ```
 question ─► router ─┬─► lookup     (explicit reference → verse text)
-                    ├─► knowledge  (curated Markdown files)
+                    ├─► knowledge  (OKF v0.2 bundle: curated, reviewed concepts)
                     ├─► rag        (hybrid search: SQLite FTS5 + vectors, rank fusion)
                     ├─► hybrid     (knowledge + rag)
                     └─► pastoral   (crisis / abuse: safety response first)
@@ -28,7 +28,8 @@ question ─► router ─┬─► lookup     (explicit reference → verse tex
               generation (Anthropic API)
                           │
                           ▼
-         citation validator (every reference checked against the corpus)
+  citation validator (every reference checked against the corpus,
+                      every knowledge claim traced to its sources)
                           │
                           ▼
                  answer + verified citations
@@ -38,21 +39,26 @@ question ─► router ─┬─► lookup     (explicit reference → verse tex
 src/corpusstudy/
   config.py        settings from env / .env (provider, translations, stance, paths)
   canon.py         66 books: EN + LSG names, OSIS/USFM codes, chapter counts, alias lookup
-  schemas.py       Pydantic models: references, verses, chunks, knowledge files,
-                   retrieval results, answers, chat API; plus the reference parser
+  schemas.py       Pydantic models: references, verses, chunks, retrieval results,
+                   answers, chat API; plus the reference parser
   versification.py verse counts per translation, KJV <-> LSG 1910 reference mapping
-  corpus.py        read access to the ingested texts (verse, chapter, passage lookup)
+  corpus.py        read access to the ingested Bible texts (verse, chapter, passage)
+  commentary.py    read access to the ingested commentaries (excerpt lookup by id)
+  okf/             Google Open Knowledge Format v0.2: documents, tolerant models,
+                   bundle conformance, CorpusStudy producer profile, index.md/log.md,
+                   source references; CLI `python -m corpusstudy.okf`
   resources/       committed tables: versification, KJV-LSG mapping, source checksums
-  ingest/          Phase 2  OSIS / USFM / CSV-JSON parsers, alignment, pipeline
-  indexing/        Phase 3  chunking, keyword + vector indexes
-  retrieval/       Phase 3  hybrid retrieval and rank fusion
-  knowledge/       Phase 4  knowledge file loader and linker
-  router/          Phase 5  question routing
-  generation/      Phase 5  prompt assembly and LLM calls
-  validation/      Phase 5  citation validator
-  api/             Phase 6  FastAPI /chat and the chat page
-knowledge/         curated Markdown files (books, themes, people, doctrines, events)
-data/              downloaded texts (git-ignored)
+  ingest/          Phase 2  OSIS / USFM / CSV-JSON / CCEL parsers, alignment, pipeline
+  indexing/        Phase 4  chunking, keyword + vector indexes
+  retrieval/       Phase 4  hybrid, OKF-aware retrieval and rank fusion
+  router/          Phase 6  question routing
+  generation/      Phase 6  prompt assembly and LLM calls
+  validation/      Phase 6  citation and provenance validator
+  api/             Phase 7  FastAPI /chat and the chat page
+knowledge/         OKF v0.2 bundle (index.md, log.md, books, themes, people,
+                   doctrines, events, references/sources); see docs/KNOWLEDGE_FORMAT.md
+data/              downloaded texts and processed corpus (git-ignored)
+docs/              BUILD_PLAN.md, KNOWLEDGE_FORMAT.md
 tests/
 ```
 
@@ -60,7 +66,9 @@ The schemas enforce these rules from the start:
 - References must name a real book and chapter. They parse from English or French forms such as `Rom 8:28-30`, `Romains 8.28-30`, `Ps 23` or `Jude 3`.
 - Scripture chunks must carry a public-domain translation in their own language. Commentary chunks can never carry a translation, so commentary cannot be passed off as Scripture.
 - An answer only quotes the translation for its own language (KJV in English, LSG 1910 in French).
-- A knowledge file marked `reviewed` must name its reviewer and the review date.
+- The knowledge bundle conforms to OKF v0.2. Our own concepts also pass a stricter producer profile:
+  - Every claim is footnoted to a `sources` entry that resolves to a real Bible passage or commentary excerpt.
+  - Only concepts verified by a `human:` actor can be `stable`.
 
 ## Setup
 
@@ -69,6 +77,7 @@ python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 cp .env.example .env        # then set ANTHROPIC_API_KEY
 .venv/bin/pytest
+.venv/bin/python -m corpusstudy.okf check   # knowledge bundle: OKF conformance + profile
 ```
 
 ## Bible texts (Phase 2)
@@ -123,9 +132,9 @@ The full plan, including how the knowledge layer follows Google's Open Knowledge
 | Phase | Scope | Who | Status |
 |---|---|---|---|
 | 0 | Decisions | You | ✅ Done; 5 new OKF questions |
-| 1 | Skeleton, config, canon, schemas | Claude | ✅ Done; OKF schema amendment |
-| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done; TSK pending |
-| 3 | OKF bundle foundation: loader, validator, index/log, CLI, references | Claude | Next |
+| 1 | Skeleton, config, canon, schemas | Claude | ✅ Done, OKF-aligned |
+| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references; TSK pending |
+| 3 | OKF bundle foundation: loader, validator, index/log, CLI, references | Claude | 🟡 Mostly done; `verify` stamp and link graph remain |
 | 4 | Chunking, FTS5 + vectors, hybrid and OKF-aware retrieval | Claude | — |
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | — |
 | 6 | Router, generation, citation and provenance validator | Claude | — |
