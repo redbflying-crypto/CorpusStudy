@@ -3,6 +3,7 @@
     python -m corpusstudy.generation ask "What does Romans 5:1 teach?" [--lang fr] [--drafts]
     python -m corpusstudy.generation route "Who was Abraham?"
     python -m corpusstudy.generation smoke       # one live API call; needs ANTHROPIC_API_KEY
+    python -m corpusstudy.generation eval [--live] [--json OUT]   # eval/answers.yaml
 
 `ask` prints the answer, its citations and sources, and any validation warnings.
 """
@@ -10,7 +11,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 from corpusstudy.config import Language, get_settings
 from corpusstudy.schemas import ChatRequest, ChatResponse, Outcome
@@ -37,6 +40,60 @@ def show(response: ChatResponse) -> None:
         print(f"warning: {w}", file=sys.stderr)
 
 
+def run_eval(args: argparse.Namespace) -> int:
+    from corpusstudy.generation.answer import Answerer
+    from corpusstudy.generation.evaluation import (
+        EVAL_ANSWERS,
+        evaluate_live,
+        evaluate_offline,
+        load_cases,
+        summarise,
+        targets_met,
+    )
+    from corpusstudy.retrieval.search import Search
+
+    cases = load_cases(args.cases or EVAL_ANSWERS)
+    search = Search(use_drafts=True)  # the bundle as it will be once reviewed
+    results = evaluate_offline(cases, search)
+    if args.live:
+        if not get_settings().has_api_key:
+            print("live evaluation skipped: ANTHROPIC_API_KEY is not set", file=sys.stderr)
+            return 2
+        evaluate_live(results, Answerer(search))
+    s = summarise(results)
+
+    def pct(pair: tuple[int, int]) -> str:
+        n, d = pair
+        return f"{n}/{d} ({100 * n / d:.0f}%)" if d else "n/a"
+
+    print(f"{s['cases']} cases")
+    labels = [("routing", "routing"), ("language", "language detected"),
+              ("concept", "concept named"), ("safety_cases", "safety message first"),
+              ("no_false_alarm", "no false safety alarm"), ("lookups", "lookups")]  # fmt: skip
+    for key, label in labels:
+        print(f"  {label:24} {pct(s[key])}")
+    if "live" in s:
+        live = s["live"]
+        print("live")
+        for key in ("citation_accuracy", "answers_all_verified", "answered", "safety_first",
+                    "cited_expected"):  # fmt: skip
+            print(f"  {key.replace('_', ' '):24} {pct(live[key])}")
+        print(f"  {'median seconds':24} {live['median_seconds']}")
+    print("by category: " + ", ".join(f"{k} {v[0]}/{v[1]}" for k, v in s["by_category"].items()))
+    for r in results:
+        if not r.ok:
+            failed = [k for k, v in r.checks.items() if not v]
+            print(f"  FAIL {r.case['q']!r}: {failed} {'; '.join(r.notes)}")
+    if args.json:
+        rows = [{"case": r.case, "checks": r.checks, "notes": r.notes, "live": r.live}
+                for r in results]  # fmt: skip
+        args.json.write_text(json.dumps({"summary": s, "results": rows}, ensure_ascii=False,
+                                        indent=1, default=str), encoding="utf-8")  # fmt: skip
+    met = targets_met(s)
+    print("targets met" if met else "targets NOT met")
+    return 0 if met else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m corpusstudy.generation")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -47,7 +104,13 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--drafts", action="store_true", help="use draft knowledge concepts")
     smoke = sub.add_parser("smoke", help="live API check: answers two questions")
     smoke.add_argument("--drafts", action="store_true")
+    ev = sub.add_parser("eval", help="answer evaluation (offline; --live calls the API)")
+    ev.add_argument("--live", action="store_true", help="also answer through the API")
+    ev.add_argument("--cases", type=Path, help="cases file (default eval/answers.yaml)")
+    ev.add_argument("--json", type=Path, help="write per-case results to this file")
     args = parser.parse_args(argv)
+    if args.cmd == "eval":
+        return run_eval(args)
 
     from corpusstudy.generation.answer import Answerer
     from corpusstudy.retrieval.search import Search

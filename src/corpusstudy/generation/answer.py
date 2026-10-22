@@ -98,6 +98,7 @@ _TEXT = {
         "declined": "I'm not able to help with that request.",
         "truncated": "(first {n} verses shown)",
         "title": "title",
+        "invalid": "not found in the",
         "unavailable": "The answer service is not available right now, so I can only show "
         "the message above.",
     },
@@ -108,6 +109,7 @@ _TEXT = {
         "declined": "Je ne peux pas répondre à cette demande.",
         "truncated": "({n} premiers versets)",
         "title": "titre",
+        "invalid": "introuvable dans la",
         "unavailable": "Le service de réponse n'est pas disponible pour le moment ; je ne peux "
         "afficher que le message ci-dessus.",
     },
@@ -220,8 +222,11 @@ class Answerer:
         tr = get_settings().translation_for(language)
         text = _TEXT[language]
         blocks, citations = [], []
+        for bad in routing.invalid_refs:
+            ref_text, _, reason = bad.partition(" (")
+            blocks.append(f"**{ref_text}**: {text['invalid']} {tr.full_name} ({reason}")
         for ref in routing.refs[:MAX_LOOKUP_REFS]:
-            heading = f"**{ref.display(language)}** ({tr.full_name})"
+            heading = f"**{ref.display(language)}** · {tr.full_name}"
             problems = versification(tr).check_passage(ref)
             if problems:
                 blocks.append(f"{heading}: {problems[0]}")

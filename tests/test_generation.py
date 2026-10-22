@@ -121,7 +121,8 @@ def test_valid_answer_passes_and_lists_citations():
 
 def test_references_must_exist_in_the_answer_translation():
     assert problems("See John 3:99.") == ["John 3:99: John 3 has 36 verses, not 99"]
-    assert problems("See Romans 99:1.") == ["'Romans 99:1' is not a valid reference in KJV"]
+    assert problems("See Romans 99:1.") == [
+        "Romans 99:1 is not a valid reference in KJV (Romans has 16 chapters)"]  # fmt: skip
     # "the numbers 3 and 4" is not Numbers 3.
     assert problems("Read the numbers 3 and 4 carefully.") == []
 
@@ -343,7 +344,8 @@ class EchoClient(FakeClient):
 
         self.calls.append(kwargs)
         prompt = kwargs["messages"][-1]["content"]
-        verse = _re.search(r'<scripture ref="([^"]+) \(\w+\)">([^<]+)<', prompt)
+        # The first verse line: "<reference> <text>" (the reference is not part of the text).
+        verse = _re.search(r'<scripture ref="[^"]+">\n(\S.*?\d+[:.]\d+) ([^\n<]+)', prompt)
         source = _re.search(r'<source id="(E\d+)"[^>]*>([^<]+)<', prompt)
         text = f'{verse.group(1)} reads: "{unescape(verse.group(2)).split(".")[0]}".'
         if source:  # commentary or knowledge was retrieved
@@ -392,3 +394,62 @@ def test_lookup_and_refusal_texts_pass_the_validator():
         ans = a.answer(ChatRequest(message=question, language=lang)).answer
         assert ans.outcome == Outcome.LOOKUP
         assert validate(ans.text, lang, []).ok, validate(ans.text, lang, []).problems
+
+
+def test_scripture_evidence_is_quotable_without_verse_markers():
+    c = chunk("scripture", "[1] Therefore being justified by faith, [2] By whom also we have access",
+              refs=[PassageRef.parse("Rom 5:1-2")])  # fmt: skip
+    e = pack([RetrievalResult(chunk=c, score=1.0, retriever=Retriever.KEYWORD, rank=1)])[0]
+    assert e.text == "Therefore being justified by faith, By whom also we have access"
+    assert [r.osis for r, _ in e.verses()] == ["Rom.5.1", "Rom.5.2"]
+    prompt = user_message("q", Language.EN, [e])
+    assert "Romans 5:1 Therefore being justified by faith," in prompt and "[1]" not in prompt
+    title = chunk("scripture", "To the chief Musician. [1] Have mercy upon me",
+                  refs=[PassageRef.parse("Ps 51:1")])  # fmt: skip
+    e = pack([RetrievalResult(chunk=title, score=1.0, retriever=Retriever.KEYWORD, rank=1)])[0]
+    assert [r.verse for r, _ in e.verses()] == [0, 1]
+
+
+def test_invalid_references_are_lookups_with_a_reason():
+    r = route("Matthieu 29.1")
+    assert r.route == Route.LOOKUP and r.invalid_refs == [
+        "Matthieu 29.1 (Matthieu compte 28 chapitres)"
+    ]
+    assert route("Romans 99:1").invalid_refs == ["Romans 99:1 (Romans has 16 chapters)"]
+    assert route("I've been thinking about killing myself").concern == "self-harm"
+    assert route("I wish I were dead").concern == "self-harm"
+    assert route("When will this study end? My notes are long.").concern is None
+
+
+# --------------------------------------------------------------------------- answer evaluation
+
+
+@needs_corpus
+@pytest.mark.parametrize("name", ["answers.yaml", "answers_holdout.yaml"])
+def test_answer_evaluation_offline_targets(name):
+    from corpusstudy.config import REPO_ROOT
+    from corpusstudy.generation.evaluation import (
+        evaluate_offline,
+        load_cases,
+        summarise,
+        targets_met,
+    )
+    from corpusstudy.retrieval.search import Search
+
+    results = evaluate_offline(load_cases(REPO_ROOT / "eval" / name), Search(use_drafts=True))
+    failures = [(r.case["q"], r.checks, r.notes) for r in results if not r.ok]
+    assert targets_met(summarise(results)), failures
+
+
+def test_answer_evaluation_set_is_well_formed():
+    from corpusstudy.config import REPO_ROOT
+    from corpusstudy.generation.evaluation import load_cases
+
+    cases = load_cases(REPO_ROOT / "eval" / "answers.yaml")
+    assert len(cases) >= 50
+    assert {c["lang"] for c in cases} == {"en", "fr"}
+    assert {c["route"] for c in cases} == {r.value for r in Route}
+    for c in cases:
+        assert c["gist"] and c["category"], c
+        for ref in c.get("refs", []):
+            PassageRef.from_osis(ref)

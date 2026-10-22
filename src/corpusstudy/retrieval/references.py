@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from corpusstudy.canon import find_book
+from corpusstudy.config import Language
 from corpusstudy.schemas import PassageRef, parse_reference
 
 # Optional numeral, a book word (optionally "Song of Solomon" / "Cantique des cantiques"),
@@ -56,3 +58,27 @@ def find_references(text: str) -> list[tuple[PassageRef, int, int]]:
         found.setdefault(ref.osis, (ref, m.start(), m.end()))
         pos = m.end()
     return list(found.values())
+
+
+def find_invalid_references(text: str, language: Language = Language.EN) -> list[str]:
+    """Book names followed by numbers that do not form a reference ("Romans 99:1",
+    "Matthieu 29.1"), with what is wrong, in `language`; valid references are skipped."""
+    spans = [(s, e) for _, s, e in find_references(text)]
+    bad = []
+    for m in _CANDIDATE.finditer(text):
+        if any(s <= m.start() < e for s, e in spans):
+            continue
+        prefix, name, numbers = m.group(1) or "", m.group(2), m.group(3)
+        has_verse = bool(re.search(r"\d(?:\s*[:.]\s*|,)\d", numbers))
+        book = find_book(f"{prefix}{name}".strip())
+        if book is None or not (has_verse or name[0].isupper()):
+            continue
+        chapter = int(re.match(r"\d+", numbers).group())
+        if chapter > book.chapters:
+            name = book.name(language)
+            reason = (f"{name} has {book.chapters} chapters" if language == Language.EN
+                      else f"{name} compte {book.chapters} chapitres")  # fmt: skip
+        else:
+            reason = "not a valid reference" if language == Language.EN else "référence invalide"
+        bad.append(f"{m.group(0).strip()} ({reason})")
+    return bad

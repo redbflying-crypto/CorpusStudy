@@ -219,6 +219,11 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
   - An evaluation set of 50+ questions: English and French, lookups, doctrine, people, history, cross-tradition questions and the safety cases.
 - **Gate (you):** check the expected answers and the safety-sensitive cases.
 - **Exit:** the evaluation targets are met (citation accuracy 100%, correct routing, safety cases handled).
+- **Status:**
+  - The API (`/chat`, `/passage`, `/health`) and the chat page are built. They were checked in a browser in light and dark themes, at desktop and phone widths.
+  - The evaluation sets have 61 tuned and 16 held-out questions.
+  - Offline targets are met: routing, language, concepts, safety and lookups all at 100%.
+  - Still to do: the live run (`python -m corpusstudy.generation eval --live`), which needs the API key, and your review of each case's `gist` and of the safety cases.
 
 ### Phase 8: Docker and running locally
 - **Claude:** a Dockerfile and docker-compose setup with the corpus and indexes in a volume and `.env` for secrets, plus a runbook covering rebuilding the corpus, re-indexing, reviewing concepts and updating the bundle.
@@ -242,7 +247,7 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 | 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted; awaiting your review |
 | 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
-| 7 | API, chat page, evaluation set | Claude, **you validate** | — |
+| 7 | API, chat page, evaluation set | Claude, **you validate** | 🟡 Built; offline targets met; awaiting your review of the expected answers and a live run |
 | 8 | Docker, local run | Shared | — |
 | 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
 

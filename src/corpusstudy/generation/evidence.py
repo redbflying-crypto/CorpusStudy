@@ -6,10 +6,13 @@ Scripture is cited by its reference in the text ("John 3:16", "Jean 3.16"), neve
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from corpusstudy.config import Language
-from corpusstudy.schemas import Chunk, RetrievalResult, SourceType
+from corpusstudy.schemas import Chunk, RetrievalResult, SourceType, VerseRef
+
+_VERSE_MARK = re.compile(r"\[(\d+)\]\s*")
 
 WORKS = {
     "henry": "Matthew Henry, Concise Commentary",
@@ -29,7 +32,26 @@ class Evidence:
 
     @property
     def text(self) -> str:
+        """The text as it may be quoted (Scripture without its [n] verse markers)."""
+        if self.kind == SourceType.SCRIPTURE:
+            return " ".join(text for _, text in self.verses())
         return self.chunk.text
+
+    def verses(self) -> list[tuple[VerseRef | None, str]]:
+        """Scripture as (verse, text) pairs; a psalm title comes first, as verse 0."""
+        chunk = self.chunk
+        passage = chunk.refs[0] if chunk.refs else None
+        parts = _VERSE_MARK.split(chunk.text)
+        out: list[tuple[VerseRef | None, str]] = []
+        if parts[0].strip():
+            title = (VerseRef(book=passage.book, chapter=passage.start_chapter, verse=0)
+                     if passage and passage.book == "Ps" else None)  # fmt: skip
+            out.append((title, parts[0].strip()))
+        for number, text in zip(parts[1::2], parts[2::2], strict=True):
+            ref = (VerseRef(book=passage.book, chapter=passage.start_chapter, verse=int(number))
+                   if passage else None)  # fmt: skip
+            out.append((ref, text.strip()))
+        return out
 
     @property
     def concept_id(self) -> str | None:

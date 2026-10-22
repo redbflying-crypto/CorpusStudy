@@ -13,7 +13,14 @@ import re
 from enum import StrEnum
 from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from corpusstudy.canon import BOOKS_BY_OSIS, Book, find_book
 from corpusstudy.config import ALLOWED_COMMENTARIES, Language, Stance, Translation
@@ -327,6 +334,12 @@ class Citation(_Model):
     translation: Translation
     quote: str | None = None
     verified: bool = False
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def display(self) -> str:
+        """The reference as readers of this translation write it ("Jean 3.16")."""
+        return self.ref.display(self.translation.language)
 
 
 class SourceNote(_Model):

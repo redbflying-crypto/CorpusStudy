@@ -19,11 +19,10 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from corpusstudy.canon import find_book
 from corpusstudy.config import Language, get_settings
 from corpusstudy.generation.evidence import Evidence
 from corpusstudy.okf.quotes import normalise
-from corpusstudy.retrieval.references import _CANDIDATE, find_references
+from corpusstudy.retrieval.references import find_invalid_references, find_references
 from corpusstudy.schemas import Citation, PassageRef, SourceType
 from corpusstudy.versification import versification
 
@@ -84,20 +83,6 @@ def _quotations(paragraph: str) -> list[str]:
     return [q for q in quotes if q]
 
 
-def _bad_references(text: str, found: list[tuple[PassageRef, int, int]]) -> list[str]:
-    """Book names followed by numbers that the parser rejected ("Romans 99:1")."""
-    spans = [(s, e) for _, s, e in found]
-    bad = []
-    for m in _CANDIDATE.finditer(text):
-        if any(s <= m.start() < e for s, e in spans):
-            continue
-        prefix, book, numbers = m.group(1) or "", m.group(2), m.group(3)
-        has_verse = bool(re.search(r"\d(?:\s*[:.]\s*|,)\d", numbers))
-        if (has_verse or book[0].isupper()) and find_book(f"{prefix}{book}".strip()):
-            bad.append(m.group(0).strip())
-    return bad
-
-
 def validate(
     text: str,
     language: Language,
@@ -120,8 +105,11 @@ def validate(
         for p in problems:
             report.problems.append(Problem("reference", f"{ref.display(language)}: {p}"))
         report.citations.append(Citation(ref=ref, translation=tr, verified=not problems))
-    for bad in _bad_references(text, found):
-        report.problems.append(Problem("reference", f"{bad!r} is not a valid reference in {tr}"))
+    for bad in find_invalid_references(text, language):
+        ref_text, _, reason = bad.partition(" (")
+        report.problems.append(
+            Problem("reference", f"{ref_text} is not a valid reference in {tr} ({reason}")
+        )
 
     # Markers.
     report.markers = markers_in(text)

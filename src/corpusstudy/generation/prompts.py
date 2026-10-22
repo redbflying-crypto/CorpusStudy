@@ -15,7 +15,8 @@ Reformed (Calvinist) perspective, and you are fair to other Christian traditions
 
 Each request gives you evidence retrieved from a fixed corpus: Scripture (the King James \
 Version for English, the Louis Segond 1910 for French), the commentaries of Matthew Henry \
-and John Calvin, and curated knowledge notes. Answer from that evidence.
+and John Calvin, and curated knowledge notes. Answer from that evidence. Scripture evidence \
+lists one verse per line after its reference; the reference is not part of the text.
 
 How to answer:
 - Write in the language the request names, in clear Markdown, usually 150 to 400 words. \
@@ -75,7 +76,10 @@ ANSWER_SCHEMA = {
 
 def _item(e: Evidence) -> str:
     if e.kind == SourceType.SCRIPTURE:
-        return f"<scripture ref={quoteattr(e.label)}>{escape(e.text)}</scripture>"
+        lines = [f"{ref.display(e.chunk.language)} {text}" if ref else text
+                 for ref, text in e.verses()]  # fmt: skip
+        body = escape("\n".join(lines))
+        return f"<scripture ref={quoteattr(e.label)}>\n{body}\n</scripture>"
     attrs = f"id={quoteattr(e.key or '')} label={quoteattr(e.label)}"
     if e.kind == SourceType.KNOWLEDGE:
         tier = e.trust_tier or "unverified"

@@ -19,7 +19,11 @@ from dataclasses import dataclass, field
 
 from corpusstudy.config import Language
 from corpusstudy.indexing.analysis import detect_language
-from corpusstudy.retrieval.references import extract_references, strip_references
+from corpusstudy.retrieval.references import (
+    extract_references,
+    find_invalid_references,
+    strip_references,
+)
 from corpusstudy.schemas import PassageRef, Route
 
 # Matched on lower-cased text without accents. Questions *about* these subjects ("what does
@@ -27,9 +31,10 @@ from corpusstudy.schemas import PassageRef, Route
 _CONCERNS = {
     "self-harm": [
         r"suicid",
-        r"kill (?:my ?self|me)",
-        r"end (?:my|it all)\b",
+        r"kill(?:ing)? (?:my ?self|me)\b",
+        r"end(?:ing)? (?:my life|it all)\b",
         r"take my (?:own )?life",
+        r"wish i(?:'?d| was| were| had) (?:dead|never been born)",
         r"(?:want|wanna|going) to die",
         r"don'?t want to (?:live|be alive|wake up)",
         r"(?:hurt|harm|cut(?:ting)?) my ?self",
@@ -103,11 +108,15 @@ class Routing:
     refs: list[PassageRef] = field(default_factory=list)
     concepts: list[str] = field(default_factory=list)  # usable concept ids it names
     concern: str | None = None  # pastoral concern
+    invalid_refs: list[str] = field(default_factory=list)  # "Matthieu 29.1 (...)"
     reason: str = ""
 
 
-def _only_asks_for_text(text: str) -> bool:
-    words = re.findall(r"[a-z]+", _plain(strip_references(text)))
+def _only_asks_for_text(text: str, invalid: list[str]) -> bool:
+    text = strip_references(text)
+    for bad in invalid:  # "Matthieu 29.1 (Matthew has 28 chapters)": drop the reference
+        text = text.replace(bad.split(" (", 1)[0], " ")
+    words = re.findall(r"[a-z]+", _plain(text))
     return all(w in _LOOKUP_WORDS for w in words)
 
 
@@ -118,8 +127,10 @@ def route(text: str, language: Language | None = None, search=None) -> Routing:
     if concern := pastoral_concern(text):
         return Routing(Route.PASTORAL, language, refs, concern=concern,
                        reason=f"pastoral concern: {concern}")  # fmt: skip
-    if refs and _only_asks_for_text(text):
-        return Routing(Route.LOOKUP, language, refs, reason="asks only for the passage text")
+    invalid = find_invalid_references(text, language)
+    if (refs or invalid) and _only_asks_for_text(text, invalid):
+        return Routing(Route.LOOKUP, language, refs, invalid_refs=invalid,
+                       reason="asks only for the passage text")  # fmt: skip
     concepts = search.named_concepts(text, language) if search is not None else []
     if concepts and refs:
         return Routing(Route.HYBRID, language, refs, concepts,

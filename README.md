@@ -59,8 +59,9 @@ src/corpusstudy/
   generation/      Phase 6  evidence, prompts, Anthropic API call, answer pipeline;
                    CLI `python -m corpusstudy.generation`
   validation/      Phase 6  citation and provenance validator
-  api/             Phase 7  FastAPI /chat and the chat page
-eval/              retrieval evaluation sets (tuned and held-out)
+  api/             Phase 7  FastAPI app (/chat, /passage, /health) and the chat page;
+                   `python -m corpusstudy.api`
+eval/              retrieval and answer evaluation sets (tuned and held-out)
 knowledge/         OKF v0.2 bundle (index.md, log.md, books, themes, people,
                    doctrines, events, references/sources); see docs/KNOWLEDGE_FORMAT.md
 data/              downloaded texts and processed corpus (git-ignored)
@@ -89,6 +90,8 @@ cp .env.example .env        # then set ANTHROPIC_API_KEY
 .venv/bin/python -m corpusstudy.retrieval eval
 .venv/bin/python -m corpusstudy.generation ask "What does Romans 5:1 teach?"
 .venv/bin/python -m corpusstudy.generation smoke   # live API check (needs the key)
+.venv/bin/python -m corpusstudy.generation eval    # answer evaluation (offline; --live)
+.venv/bin/python -m corpusstudy.api                # chat page at http://127.0.0.1:8000
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint, rebuilds the Bibles, fails if any committed table or bundle file changes, then runs the tests and `okf check` on every push and pull request.
@@ -197,6 +200,36 @@ A held-out set (`eval/retrieval_holdout.yaml`, 12 questions written after tuning
    - Each source is listed with its label and, for knowledge, its OKF trust tier.
    - Scripture citations come back verified, and the answer records its route and outcome (answered, repaired, refused, lookup, safety or declined).
 
+## Chat page, API and evaluation (Phase 7)
+
+`python -m corpusstudy.api` serves the chat page and the API on `CORPUS_API_HOST:CORPUS_API_PORT` (default `127.0.0.1:8000`).
+
+| Endpoint | What it does |
+|---|---|
+| `GET /` | The chat page: English or French, answers with verified Scripture chips (tap one to read the passage), numbered sources, and a **Reviewed** or **Draft** badge on knowledge |
+| `POST /chat` | `{"message": ..., "language": "en" or "fr" (optional), "history": [...]}` returns the answer, its citations, sources, route and outcome |
+| `GET /passage?ref=Jean 3.16&lang=fr` | A passage in that language's translation and numbering |
+| `GET /health` | Index state, whether an API key is set, the model, and the drafts setting |
+
+Without an API key, lookups and the safety messages still work, and other questions return 503.
+
+**Answer evaluation.**
+- **The sets:**
+  - `eval/answers.yaml` has 61 questions: lookups, doctrine, people, history, books, questions where traditions differ, open questions, 8 safety cases, and 3 that must not trigger a safety message. Each has a `gist`, the expected answer, for your review.
+  - `eval/answers_holdout.yaml` has 16 questions written afterwards and never used to tune the router.
+- **Offline checks** (`python -m corpusstudy.generation eval`, also run by the tests):
+  - routing, language detection and the concept named;
+  - the safety message comes first in pastoral cases, and no other case raises one;
+  - lookups return the right passage, or report a reference that doesn't exist.
+- **Live checks** (`--live`, needs the key): every question is answered through the API, measuring citation accuracy, the share answered, and whether the expected passages are cited.
+
+| Set | Routing | Language | Concept | Safety first | No false alarm | Lookups |
+|---|---|---|---|---|---|---|
+| Tuned (61) | 61/61 | 61/61 | 33/33 | 8/8 | 53/53 | 10/10 |
+| Held-out (16) | 16/16 (13/16 on first run) | 16/16 | 7/7 | 2/2 | 14/14 | 3/3 |
+
+On its first run the held-out set exposed one real defect: "Saul" was an alias of Paul, so a question about King Saul went to Paul. Ambiguous and generic aliases were then removed from 12 concepts. Two of my held-out expectations were wrong and are corrected in the file, with a note.
+
 ## Phases
 
 The full plan, including how the knowledge layer follows Google's Open Knowledge Format (OKF) v0.2, is in [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
@@ -210,7 +243,7 @@ The full plan, including how the knowledge layer follows Google's Open Knowledge
 | 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted; awaiting your review |
 | 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
-| 7 | API, chat page, evaluation set | Claude, **you validate** | — |
+| 7 | API, chat page, evaluation set | Claude, **you validate** | 🟡 Built; offline targets met; awaiting your review of the expected answers and a live run |
 | 8 | Docker, local run | Shared | — |
 | 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
 
