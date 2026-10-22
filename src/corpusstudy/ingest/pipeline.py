@@ -21,6 +21,7 @@ from pathlib import Path
 from corpusstudy.canon import BOOKS, BOOKS_BY_OSIS
 from corpusstudy.config import Translation, get_settings
 from corpusstudy.ingest.align import Link, align_translations
+from corpusstudy.ingest.commentary import COMMENTARY_SOURCES, CommentaryReport, process, raw_path
 from corpusstudy.ingest.osis import parse_osis
 from corpusstudy.ingest.raw import RawVerse
 from corpusstudy.ingest.sources import RESOURCES, SOURCES, Source, fetch, sha256
@@ -192,7 +193,8 @@ def run(
     data_dir: Path | None = None,
     update_lock: bool = False,
     write_resources: bool = True,
-) -> dict[Translation, Report]:
+    commentaries: bool = True,
+) -> tuple[dict[Translation, Report], dict[str, CommentaryReport]]:
     data_dir = data_dir or get_settings().data_dir
     raw_dir, out_dir = data_dir / "raw", data_dir / "processed"
     reports: dict[Translation, Report] = {}
@@ -233,6 +235,26 @@ def run(
             _dump(mapping_table(links, ratio), VERSIFICATION_DIR / "KJV-LSG1910.json")
         manifest["alignment"] = {"links": len(links), "length_ratio": round(ratio, 4)}
 
-    if parsed:
+    commentary_reports: dict[str, CommentaryReport] = {}
+    if commentaries:
+        for source in COMMENTARY_SOURCES.values():
+            cr = process(source, raw_dir, out_dir)
+            commentary_reports[source.id] = cr
+            if cr.status == "ok":
+                manifest.setdefault("commentaries", {})[source.id] = {
+                    "work": source.work,
+                    "title": source.title,
+                    "edition": source.edition,
+                    "license": source.license,
+                    "origin": source.origin,
+                    "sha256": sha256(raw_path(source, raw_dir)),
+                    "excerpts": cr.excerpts,
+                    "with_refs": cr.with_refs,
+                    "corrected_refs": cr.corrected_refs,
+                    "dropped_refs": cr.dropped_refs,
+                    "output": f"commentary/{source.id}.jsonl",
+                }
+
+    if parsed or commentary_reports:
         _dump(manifest, out_dir / "manifest.json")
-    return reports
+    return reports, commentary_reports

@@ -91,6 +91,22 @@ Each text is stored in its own verse numbering, so a French citation such as `Ps
 
 The Louis Segond source contains one typo, at Ps 119:115 (typed `\v 11 5`). The pipeline repairs it and logs the repair. The KJV is public domain everywhere except the United Kingdom, where it is under perpetual Crown copyright. Personal use in France is unaffected.
 
+## Commentaries (Phase 2b)
+
+CCEL (ccel.org) is not reachable from the build workspace, so commentary files are downloaded by hand and imported once. The import records the file's SHA-256 checksum in `resources/sources.lock.json`:
+
+```bash
+.venv/bin/python -m corpusstudy.ingest --import calvin-lcc path/to/calcom.doc
+```
+
+| Source | Edition | Status |
+|---|---|---|
+| `calvin-lcc` | *Calvin: Commentaries*, selections arranged by subject, tr. J. Haroutunian, Library of Christian Classics XXIII (1958), CCEL ThML. CCEL lists it as public domain. | ✅ 250 excerpts (245 keyed to the passage they comment on), about 870k characters |
+| Matthew Henry, *Concise Commentary* | CCEL PDF | ⏳ Waiting for the file (the Drive copy is too large for the connector) |
+| Treasury of Scripture Knowledge | — | ⏳ Not decided |
+
+Each excerpt starts with the verse Calvin comments on, quoted in italics with its reference. The excerpt is keyed to that passage (`refs`), and other passages it cites are kept as `mentions`. Only Calvin's own text is kept: the editor's introductions, footnotes and page numbers are dropped. The source has three wrong references; they are corrected in a reviewed table (`COMMENTARY_SOURCES[...].corrections`), and each correction is logged.
+
 ## Phases
 
 | Phase | Scope | Who | Status |
@@ -98,7 +114,7 @@ The Louis Segond source contains one typo, at Ps 119:115 (typed `\v 11 5`). The 
 | 0 | Decisions, API key, repo | You | ✅ Done |
 | 1 | Skeleton, config, canon, schemas, tests | Claude | ✅ Done |
 | 2 | Ingest KJV and Louis Segond 1910 | Claude | ✅ Done |
-| 2b | Commentaries (Calvin, Matthew Henry, TSK) | Claude, once a source is reachable | ⏳ Blocked on network access |
+| 2b | Commentaries | Claude, from files you supply | 🟡 Calvin done; Matthew Henry and TSK pending |
 | 3 | Chunking, keyword and vector indexes, hybrid retrieval | Claude | — |
 | 4 | Knowledge files (about 36) | Claude drafts, you review | — |
 | 5 | Router, generation, citation validator | Claude | — |

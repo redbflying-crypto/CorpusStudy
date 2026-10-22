@@ -9,12 +9,13 @@ data/
   raw/
     kjv/            # eng-kjv.osis.xml
     lsg1910/        # 66 USFM files
+    calvin-lcc/     # calcom.doc, imported by hand (--import calvin-lcc FILE)
   processed/
     KJV.jsonl       # {"book","chapter","verse","text"} per line; verse 0 = psalm title
     LSG1910.jsonl
-    manifest.json   # sources, URLs, checksums, counts, repairs
+    commentary/
+      calvin-lcc.jsonl  # {"id","work","source","topic","refs","mentions","text"} per excerpt
+    manifest.json   # sources, URLs, checksums, counts, repairs, corrections
 ```
-
-Commentaries (Calvin, Matthew Henry, TSK) will go under `raw/` once a source is reachable.
 
 Only public-domain texts may be placed here.

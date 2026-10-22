@@ -168,6 +168,22 @@ class PassageRef(_Model):
     def parse(cls, text: str) -> PassageRef:
         return parse_reference(text)
 
+    @classmethod
+    def from_osis(cls, osis: str) -> PassageRef:
+        """'Gen.1.1', 'Gen.1.1-Gen.1.3', 'Gen.1', 'Gen.1-Gen.2' -> PassageRef (one book only)."""
+        start, _, end = osis.partition("-")
+        s = start.split(".")
+        e = (end or start).split(".")
+        if s[0] != e[0] or not 2 <= len(s) <= 3 or len(s) != len(e):
+            raise ValueError(f"unsupported OSIS passage {osis!r}")
+        return cls(
+            book=s[0],
+            start_chapter=int(s[1]),
+            start_verse=int(s[2]) if len(s) == 3 else None,
+            end_chapter=int(e[1]),
+            end_verse=int(e[2]) if len(e) == 3 else None,
+        )
+
 
 # "1 Cor 13:4-7", "Jean 3.16", "Rom 8:28-9:2", "Ps 23", "Gen 1-3", "Jude 3", "Jn 3,16"
 _REF_RE = re.compile(

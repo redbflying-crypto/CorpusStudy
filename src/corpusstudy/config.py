@@ -53,8 +53,9 @@ class Stance(StrEnum):
 
 # Public-domain commentaries and reference works allowed in the corpus.
 ALLOWED_COMMENTARIES: dict[str, str] = {
-    "calvin": "John Calvin, Commentaries (Calvin Translation Society, 1840s-1850s)",
-    "henry": "Matthew Henry, Commentary on the Whole Bible (1706-1721)",
+    "calvin": "John Calvin, Commentaries (Calvin Translation Society, 1840s-1850s; "
+    "selections tr. J. Haroutunian, Library of Christian Classics XXIII, 1958)",
+    "henry": "Matthew Henry, Commentary on the Whole Bible (1706-1721) and its Concise abridgement",
     "tsk": "The Treasury of Scripture Knowledge (c. 1830s)",
 }
 
