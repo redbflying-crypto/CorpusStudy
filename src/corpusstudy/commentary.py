@@ -1,6 +1,6 @@
 """Read access to the processed commentaries written by `python -m corpusstudy.ingest`.
 
-Excerpt ids are `<source>:<local id>`, e.g. `henry-concise:Rom.3.21-Rom.3.31` or
+Excerpt ids are `<source>:<local id>`, e.g. `henry-concise:Rom.3.21-Rom.3.26` or
 `calvin-lcc:vi-p90`. They are stable for a given imported file (its checksum is locked),
 so knowledge concepts cite them as `/references/sources/<source>.md#<local id>`.
 """

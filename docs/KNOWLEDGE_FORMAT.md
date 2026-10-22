@@ -35,8 +35,8 @@ status: draft
 generated: { by: corpusstudy/drafter-1, at: 2026-10-23T10:00:00Z }
 sources:
   - id: henry-rom3
-    resource: /references/sources/henry-concise.md#Rom.3.21-Rom.3.31
-    title: Matthew Henry on Romans 3:21-31
+    resource: /references/sources/henry-concise.md#Rom.3.21-Rom.3.26
+    title: Matthew Henry on Romans 3:21-26
   - id: kjv-rom5
     resource: /references/sources/kjv.md#Rom.5.1
 title_fr: La justification par la foi
@@ -55,7 +55,7 @@ Being justified by faith, we have peace with God.[^kjv-rom5]
 
 See also [faith](/doctrines/faith.md).
 
-[^henry-rom3]: Matthew Henry on Romans 3:21-31
+[^henry-rom3]: Matthew Henry on Romans 3:21-26
 [^kjv-rom5]: Romans 5:1 (KJV)
 ```
 
@@ -69,7 +69,7 @@ Each `sources` entry points into `/references/sources/`. That keeps every cited 
 |---|---|---|
 | `kjv.md`, `lsg1910.md` | OSIS passage in that translation's numbering | `#Rom.3.21-Rom.3.26` |
 | `calvin-lcc.md` | excerpt id | `#vi-p90` |
-| `henry-concise.md` | excerpt id | `#Rom.3.21-Rom.3.31` |
+| `henry-concise.md` | excerpt id | `#Rom.3.21-Rom.3.26` |
 
 Each claim is credited with a Markdown footnote whose label is a `sources` id (OKF section 5.1). The profile checks that every footnote has a source, that every anchor resolves to a real passage or excerpt, and warns about sources that are never cited.
 

@@ -1,6 +1,7 @@
 """OKF v0.2: documents, tolerant models, bundle conformance, producer profile, indexes,
 source references, and the committed knowledge bundle."""
 
+import json
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -135,7 +136,7 @@ def doctrine(**overrides) -> str:
         "sources": [
             {
                 "id": "henry-rom3",
-                "resource": "/references/sources/henry-concise.md#Rom.3.21-Rom.3.31",
+                "resource": "/references/sources/henry-concise.md#Rom.3.21-Rom.3.26",
             },
             {"id": "kjv-rom5", "resource": "/references/sources/kjv.md#Rom.5.1"},
         ],
@@ -157,7 +158,7 @@ def doctrine(**overrides) -> str:
 @pytest.fixture
 def bundle_root(tmp_path, monkeypatch):
     # A fake commentary store so anchors resolve without the built corpus.
-    excerpts = {"Rom.3.21-Rom.3.31"}
+    excerpts = {"Rom.3.21-Rom.3.26"}
     fake = SimpleNamespace(get=lambda local: object() if local in excerpts else None)
     monkeypatch.setattr("corpusstudy.okf.profile.commentary", lambda source: fake)
     root = tmp_path / "knowledge"
@@ -297,8 +298,6 @@ MANIFEST = {
 
 
 def test_reference_concepts_pass_the_profile(bundle_root):
-    import json
-
     manifest = bundle_root.parent / "manifest.json"
     manifest.write_text(json.dumps(MANIFEST), encoding="utf-8")
     written = write_reference_concepts(bundle_root, manifest)
@@ -331,3 +330,31 @@ def test_committed_bundle_is_conformant_and_passes_the_profile():
     for directory in ("", "books", "themes", "people", "doctrines", "events", "references"):
         assert (root / directory / "index.md").exists()
     assert not (root / "README.md").exists()  # would be a concept without frontmatter
+
+
+@pytest.mark.skipif(
+    not (get_settings().data_dir / "processed" / "manifest.json").exists(),
+    reason="corpus not built",
+)
+def test_documented_anchor_examples_resolve_against_the_corpus():
+    """Every `#anchor` example in the source references and docs must exist in the data."""
+    import re
+
+    from corpusstudy.commentary import commentary
+    from corpusstudy.okf.references import reference_concepts
+
+    manifest = json.loads((get_settings().data_dir / "processed" / "manifest.json").read_text())
+    texts = [body + str(meta) for _, meta, body in reference_concepts(manifest)]
+    texts.append((get_settings().knowledge_dir.parent / "docs" / "KNOWLEDGE_FORMAT.md").read_text())
+    found = set()
+    for text in texts:
+        for source, anchor in re.findall(r"/references/sources/([\w-]+)\.md#([\w.\-]+)", text):
+            found.add((source, anchor))
+    assert found
+    for source, anchor in found:
+        if source in ("kjv", "lsg1910"):
+            from corpusstudy.schemas import PassageRef
+
+            PassageRef.from_osis(anchor)
+        else:
+            assert commentary(source).get(anchor) is not None, f"{source}#{anchor}"

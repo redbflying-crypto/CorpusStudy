@@ -5,7 +5,7 @@ cite a source through these files (OKF section 6.3, the `references/` convention
 
     sources:
       - id: henry-rom3
-        resource: /references/sources/henry-concise.md#Rom.3.21-Rom.3.31
+        resource: /references/sources/henry-concise.md#Rom.3.21-Rom.3.26
       - id: kjv-rom3
         resource: /references/sources/kjv.md#Rom.3.21-Rom.3.26
 
@@ -113,7 +113,7 @@ def _commentary_concept(
 
 
 def _example_anchor(source_id: str) -> str:
-    return {"calvin-lcc": "#vi-p90", "henry-concise": "#Rom.3.21-Rom.3.31"}.get(source_id, "#…")
+    return {"calvin-lcc": "#vi-p90", "henry-concise": "#Rom.3.21-Rom.3.26"}.get(source_id, "#…")
 
 
 def reference_concepts(manifest: dict[str, Any]) -> list[tuple[str, dict, str]]:

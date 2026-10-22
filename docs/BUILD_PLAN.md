@@ -51,8 +51,8 @@ verified:                             # added only by the human review step
   - { by: "human:<your-id>", at: 2026-10-25T09:00:00Z }
 sources:                              # OKF provenance; ids are footnote keys
   - id: henry-rom3
-    resource: /references/sources/henry-concise.md#Rom.3.21-Rom.3.31
-    title: Matthew Henry on Romans 3:21-31
+    resource: /references/sources/henry-concise.md#Rom.3.21-Rom.3.26
+    title: Matthew Henry on Romans 3:21-26
     author: "human:matthew-henry"
   - id: calvin-gal2
     resource: /references/sources/calvin-lcc.md#xi-p12
@@ -77,7 +77,7 @@ Justification is God's legal declaration ...[^henry-rom3]
 # Key passages
 ...
 
-[^henry-rom3]: Matthew Henry on Romans 3:21-31
+[^henry-rom3]: Matthew Henry on Romans 3:21-26
 [^calvin-gal2]: Calvin on Galatians 2:16
 ```
 
@@ -142,7 +142,7 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 - **Status:** done, and published to the OKF bundle.
 - **OKF link-up:**
   - Each source work is a `Reference` concept in `knowledge/references/sources/`, generated from the ingestion manifest by every run and stamped `verified: process:ingest` (machine-confirmed).
-  - Excerpt ids are citable anchors, e.g. `/references/sources/henry-concise.md#Rom.3.21-Rom.3.31`.
+  - Excerpt ids are citable anchors, e.g. `/references/sources/henry-concise.md#Rom.3.21-Rom.3.26`.
   - `corpusstudy.commentary` looks excerpts up by id.
 - **KJV:** 31,102 verses plus 116 psalm titles.
 - **Louis Segond 1910:** 31,170 verses, with the KJV↔LSG verse map.

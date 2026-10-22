@@ -5,9 +5,9 @@ description: Matthew Henry's one-volume abridgement of his Commentary on the Who
 resource: https://ccel.org/ccel/henry/mhcc
 tags: [commentary, henry, reformed, public-domain]
 status: stable
-generated: { by: process:ingest, at: 2026-10-22T19:54:06Z }
+generated: { by: process:ingest, at: 2026-10-22T20:23:40Z }
 verified:
-  - { by: process:ingest, at: 2026-10-22T19:54:06Z }
+  - { by: process:ingest, at: 2026-10-22T20:23:40Z }
 source_kind: commentary
 work: henry
 language: en
@@ -15,7 +15,7 @@ license: Text public domain; CCEL's PDF edition free for non-commercial use
 edition: One-volume abridgement of the Commentary on the Whole Bible (CCEL text, converted from the CCEL PDF)
 excerpts: 5164
 sha256: cb31983372ede1e356ffbd68ade4c0a62e8298c205cdcb8a7e14a1de179971f7
-anchor: '#<excerpt id>, e.g. #Rom.3.21-Rom.3.31'
+anchor: '#<excerpt id>, e.g. #Rom.3.21-Rom.3.26'
 ---
 
 # Matthew Henry's Concise Commentary on the Bible
@@ -24,7 +24,7 @@ One-volume abridgement of the Commentary on the Whole Bible (CCEL text, converte
 
 # Citation
 
-Cite an excerpt as `/references/sources/henry-concise.md#<excerpt id>`, for example `/references/sources/henry-concise.md#Rom.3.21-Rom.3.31`. Excerpt ids are listed in `data/processed/commentary/henry-concise.jsonl`.
+Cite an excerpt as `/references/sources/henry-concise.md#<excerpt id>`, for example `/references/sources/henry-concise.md#Rom.3.21-Rom.3.26`. Excerpt ids are listed in `data/processed/commentary/henry-concise.jsonl`.
 
 # Integrity
 
