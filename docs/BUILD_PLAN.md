@@ -195,6 +195,7 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
   - Each concept passes the producer profile, gets indexed and is logged.
 - **Gate (you, the biggest human task):** review each concept for accuracy and Reformed faithfulness, then approve it (the `verify` stamp) or ask for changes. Batches of 6–8 per pull request keep this manageable.
 - **Exit:** every concept is human-reviewed (`verified` by `human:<your-id>`, `status: stable`).
+- **Status:** 37 concepts drafted (with the Justification exemplar). `okf check` reports 0 errors, and all 778 quotations match their cited sources word for word. Retrieval also lists concepts the question names by title or alias. Awaiting your review.
 
 ### Phase 6: Router, generation and citation validator
 - **Claude:**
@@ -236,7 +237,7 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 | 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references (TSK skipped) |
 | 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
 | 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
-| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | Next |
+| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted; awaiting your review |
 | 6 | Router, generation, citation and provenance validator | Claude | — |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | — |
 | 8 | Docker, local run | Shared | — |

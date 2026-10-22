@@ -84,3 +84,12 @@ def test_footnote_definitions_are_not_checked_and_short_fragments_ignored():
 
 def test_normalise_quotes_and_apostrophes():
     assert normalise("God’s  “elect”") == normalise('god\'s "elect"')
+
+
+def test_quotation_after_the_last_marker_is_a_warning():
+    body = '"peace with God".[^kjv-rom5] Later "an unsourced saying".\n\n"Another one" here.'
+    issues = check_quotes(concept(body), resolve)
+    assert [(i.level, i.message) for i in issues] == [
+        ("warning", 'quotation "an unsourced saying" has no footnote'),
+        ("warning", 'quotation "another one" has no footnote'),
+    ]

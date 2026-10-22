@@ -240,6 +240,19 @@ def test_french_title_reaches_an_english_concept(world):
     assert "doctrines/justification#definition" in ids(s.search("la justification", Language.FR))
 
 
+def test_naming_a_concept_brings_its_opening_section(world):
+    s = world.Search(world.path, knowledge_root=world.root)
+    faith = next(r for r in s.search("What is faith?", Language.EN)
+                 if r.chunk.id == "doctrines/faith#definition")  # fmt: skip
+    assert "concept:knowledge" in faith.via
+    fr = s.search("Qu'est-ce que la justification ?", Language.FR)
+    assert any("concept:knowledge" in r.via for r in fr)
+    assert s._concepts(s.analyse("sanctification", Language.EN)) == []  # a draft
+    drafts = world.Search(world.path, knowledge_root=world.root, use_drafts=True)
+    assert drafts._concepts(drafts.analyse("sanctification", Language.EN)) == [
+        "doctrines/sanctification#definition"]  # fmt: skip
+
+
 def test_french_reference_maps_to_kjv_commentary(world):
     s = world.Search(world.path, knowledge_root=world.root)
     results = s.search("Psaume 51.3", Language.FR)

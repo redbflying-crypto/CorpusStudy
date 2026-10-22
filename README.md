@@ -146,6 +146,7 @@ Text is stemmed with Snowball (English and French). In English, KJV archaisms ar
 
 For each source a question produces several ranked lists:
 - the cited passage itself, read from the Bible;
+- knowledge concepts the question names by title or alias ("election", "la grâce");
 - commentary and knowledge about a cited passage (French references are converted to KJV numbering first);
 - commentary and knowledge about the verses its words matched best;
 - exact phrase, all-words and any-word BM25 matches (terms of 4 or more letters match as prefixes);
@@ -177,7 +178,7 @@ The full plan, including how the knowledge layer follows Google's Open Knowledge
 | 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references (TSK skipped) |
 | 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
 | 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
-| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | Next |
+| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted; awaiting your review |
 | 6 | Router, generation, citation and provenance validator | Claude | — |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | — |
 | 8 | Docker, local run | Shared | — |

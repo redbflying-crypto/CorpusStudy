@@ -3,6 +3,7 @@
 For each kind of source (bible, commentary, knowledge) a query produces ranked lists:
 
     lookup              the passage(s) cited in the question, read from the Bible itself
+    concept             knowledge concepts the question names by title or alias
     reference           chunks about a cited passage (commentary and knowledge use KJV
                         numbering; a French question's Louis Segond references are mapped)
     hits                commentary / knowledge about the verses that matched the words best
@@ -44,6 +45,7 @@ from corpusstudy.versification import map_passage
 RRF_K = 60
 WEIGHTS = {
     "lookup": 3.0,
+    "concept": 1.2,
     "reference": 1.2,
     "hits": 0.8,
     "phrase": 1.5,
@@ -103,6 +105,7 @@ class Search:
         bundle = load_bundle(knowledge_root or settings.knowledge_dir)
         self.usable = set(select(bundle, use_drafts=self.use_drafts))
         self.graph = build_graph(bundle)
+        self.names = _concept_names(bundle, self.usable)
         self._chunks: dict[str, Chunk] = {}
 
     # ------------------------------------------------------------------ chunks
@@ -136,6 +139,17 @@ class Search:
         ).fetchall()
         ids = list(dict.fromkeys(r[0] for r in rows))
         return [i for i in ids if self._allowed(i, kind, q.works)][:limit]
+
+    def _concepts(self, q: Query) -> list[str]:
+        """The opening chunk of each concept the question names by title or alias, longest
+        name first."""
+        found: dict[str, int] = {}
+        for name, concept in self.names.get(q.language, []):
+            n = len(name)
+            if any(tuple(q.phrase[i : i + n]) == name for i in range(len(q.phrase) - n + 1)):
+                found[concept] = max(found.get(concept, 0), n)
+        ordered = sorted(found, key=lambda c: (-found[c], c))
+        return [first for c in ordered if (first := self._first_chunk(c))]
 
     def _about(self, q: Query, refs: list[PassageRef], kind: str, limit: int) -> list[str]:
         """Chunks whose passages overlap `refs` (KJV numbering), tightest first."""
@@ -249,9 +263,11 @@ class Search:
                     lists[f"hits:{kind}"] = found
 
         if "knowledge" in kinds:
+            if found := self._concepts(q):
+                lists["concept:knowledge"] = found
             seeds = []
-            for name in ("reference:knowledge", "phrase:knowledge", "all:knowledge",
-                         "keyword:knowledge"):  # fmt: skip
+            for name in ("concept:knowledge", "reference:knowledge", "phrase:knowledge",
+                         "all:knowledge", "keyword:knowledge"):  # fmt: skip
                 seeds += [cid.split("#", 1)[0] for cid in lists.get(name, [])[:2]]
             seeds = list(dict.fromkeys(seeds))
             neighbours = self.graph.expand(seeds, hops=1, keep=lambda c: c in self.usable)
@@ -302,6 +318,7 @@ class Search:
                     "reference": Retriever.REFERENCE,
                     "hits": Retriever.REFERENCE,
                     "graph": Retriever.GRAPH,
+                    "concept": Retriever.KNOWLEDGE,
                 }.get(names.pop(), Retriever.KEYWORD)
             results.append(
                 RetrievalResult(
@@ -313,3 +330,26 @@ class Search:
                 )  # fmt: skip
             )
         return results
+
+
+def _concept_names(bundle, usable: set[str]) -> dict[Language, list[tuple[tuple[str, ...], str]]]:
+    """Stemmed titles and aliases of the usable concepts, per language. Names without a
+    content word of three or more letters ("Gn") are left out."""
+    names: dict[Language, list[tuple[tuple[str, ...], str]]] = defaultdict(list)
+    for c in bundle.concepts.values():
+        if c.id not in usable or c.meta.type == "Reference":
+            continue
+        extra = c.meta.extra
+        per_lang = {
+            Language.EN: [c.title, *(extra.get("aliases") or [])],
+            Language.FR: [extra.get("title_fr") or "", *(extra.get("aliases_fr") or [])],
+        }
+        for lang, raw in per_lang.items():
+            for name in dict.fromkeys(str(n) for n in raw if n):
+                folded = fold(name)
+                if not any(len(t) >= 3 for t in query_terms(folded, lang)):
+                    continue
+                stemmed = tuple(t for t in stems(folded, lang) if not t.isdigit())
+                if stemmed:
+                    names[lang].append((stemmed, c.id))
+    return names

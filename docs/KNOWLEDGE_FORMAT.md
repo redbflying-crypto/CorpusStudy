@@ -78,7 +78,7 @@ Each `sources` entry points into `/references/sources/`. That keeps every cited 
 | `calvin-lcc.md` | excerpt id | `#vi-p90` |
 | `henry-concise.md` | excerpt id | `#Rom.3.21-Rom.3.26` |
 
-Each claim is credited with a Markdown footnote whose label is a `sources` id (OKF section 5.1). The profile checks that every footnote has a source, that every anchor resolves to a real passage or excerpt, and warns about sources that are never cited.
+Each claim is credited with a Markdown footnote whose label is a `sources` id (OKF section 5.1). The profile checks that every footnote has a source, that every anchor resolves to a real passage or excerpt, and warns about sources that are never cited. Every quotation must appear word for word in the text its footnote cites (an ellipsis splits it into fragments that must each appear); a quotation with no footnote after it in its paragraph is a warning.
 
 ## Trust and review
 

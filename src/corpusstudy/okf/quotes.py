@@ -5,7 +5,8 @@ A claim segment runs from the previous footnote marker (or the paragraph start) 
 group such as `...[^henry-rom3]` or `...[^kjv-rom5][^henry-rom5]`. Each "quoted" or
 “quoted” string in the segment must occur in the text of one of the group's sources; an
 ellipsis ("..." or "…") splits a quotation into fragments that must each occur. Comparison
-ignores case, curly versus straight quotes and apostrophes, and spacing.
+ignores case, curly versus straight quotes and apostrophes, and spacing. A quotation with no
+footnote marker after it in its paragraph cannot be checked and is reported as a warning.
 """
 
 from __future__ import annotations
@@ -91,6 +92,12 @@ def check_quotes(
                                 f'quotation "{frag}" not found in {", ".join(ids)}',
                             )  # fmt: skip
                         )
+        for qm in _QUOTE.finditer(paragraph[start:]):
+            quote = normalise(qm.group(1) or qm.group(2)).strip(" ,.;:!?")
+            if len(quote) >= 3:
+                issues.append(
+                    Issue(f"{c.id}.md", "warning", f'quotation "{quote}" has no footnote')
+                )
     for sid in sorted(unresolved):
         issues.append(
             Issue(f"{c.id}.md", "warning", f"source `{sid}` text not available; quotes unchecked")
