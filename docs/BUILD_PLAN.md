@@ -170,23 +170,22 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 - **Exit:** `python -m corpusstudy.okf check knowledge/` passes; the bundle opens cleanly in any Markdown viewer.
 
 ### Phase 4: Chunking, indexes and hybrid retrieval
-- **Claude:**
-  - **Chunking:**
-    - **Bible:** verse windows per translation, in each translation's own numbering.
-    - **Commentaries:** split by excerpt, with long excerpts split further by size.
-    - **OKF concepts:** split by heading, keeping frontmatter metadata (`type`, `tags`, `key_passages`, trust tier, `status`) for filtering.
-  - **Keyword index:** SQLite FTS5 (BM25), one index per language.
-  - **Dense vectors:** this depends on your embeddings decision, because the Hugging Face model downloads are blocked from my workspace:
-    - (a) the Voyage AI API with your key;
-    - (b) allow Hugging Face so a local model can be used;
-    - (c) start keyword-only and add vectors later.
-  - **Fusion:** reciprocal rank fusion of the keyword and dense results.
-  - **Passage boost:** a reference in the question (e.g. "Romans 9") boosts chunks whose refs overlap it, using the KJV↔LSG map so it works in both languages.
-  - **OKF-aware retrieval:**
-    - Concept search filters by trust tier: human-reviewed only, unless `CORPUS_USE_DRAFTS` is set.
-    - It follows one hop of links from the best-matching concept (for example from justification to faith).
-    - The `index.md` files serve as a table of contents the router can browse.
-- **Exit:** a retrieval test set (about 30 queries in English and French with expected passages) meets its recall target.
+- **Status:** done (keyword search; vectors deferred, per decision 4).
+- **Chunking:**
+  - **Bible:** 3-verse windows per translation, in its own numbering.
+  - **Commentaries:** excerpts split on sentences, at most about 1,200 characters.
+  - **OKF concepts:** one chunk per section, carrying `type`, `tags`, `key_passages`, trust tier and `status`. Reference concepts are skipped.
+- **Index:** one SQLite file holding the chunks, passage ranges and an FTS5 table of stems. Snowball stemming in English and French, with KJV archaisms folded and French elisions dropped. A fingerprint of the inputs detects a stale index.
+- **Search:** each question produces ranked lists, fused per kind with weighted RRF; the kinds are then interleaved.
+  - **Lists:** the cited passage itself; commentary and knowledge about a cited passage (LSG→KJV mapping for French); commentary about the verses the words matched best; exact phrase, all-words and any-word BM25 matches (prefixes absorb stemmer differences); the OKF graph neighbours.
+  - **Commentators:** naming Matthew Henry or Calvin filters commentary to that work.
+  - **Trust rules:** knowledge appears only when human-reviewed and stable.
+- **Evaluation:**
+  - `eval/retrieval.yaml` (35 cases): gated recall@5 = 1.00, MRR 0.86.
+  - `eval/retrieval_holdout.yaml` (12 unseen cases): gated recall@5 = 1.00, MRR 0.85.
+  - Paraphrases are the known keyword-only gap, tracked but not gated.
+  - The gates run in the tests and in CI (on a Bible-only index there).
+- **Exit:** met.
 
 ### Phase 5: Knowledge drafting and review
 - **Claude:**
@@ -236,8 +235,8 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 | 1 | Skeleton, config, canon, schemas | Claude | ✅ Done, OKF-aligned |
 | 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references (TSK skipped) |
 | 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
-| 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval | Claude | Next |
-| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | — |
+| 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
+| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | Next |
 | 6 | Router, generation, citation and provenance validator | Claude | — |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | — |
 | 8 | Docker, local run | Shared | — |

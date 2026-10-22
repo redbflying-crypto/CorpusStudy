@@ -53,8 +53,9 @@ src/corpusstudy/
                    source references; CLI `python -m corpusstudy.okf`
   resources/       committed tables: versification, KJV-LSG mapping, source checksums
   ingest/          Phase 2  OSIS / USFM / CSV-JSON / CCEL parsers, alignment, pipeline
-  indexing/        Phase 4  chunking, keyword + vector indexes
-  retrieval/       Phase 4  hybrid, OKF-aware retrieval and rank fusion
+  indexing/        Phase 4  analysis (stemming, KJV archaisms), chunking, SQLite FTS5 index
+  retrieval/       Phase 4  reference extraction, hybrid OKF-aware search, evaluation
+eval/              retrieval evaluation sets (tuned and held-out)
   router/          Phase 6  question routing
   generation/      Phase 6  prompt assembly and LLM calls
   validation/      Phase 6  citation and provenance validator
@@ -82,6 +83,9 @@ python3 -m venv .venv
 cp .env.example .env        # then set ANTHROPIC_API_KEY
 .venv/bin/pytest
 .venv/bin/python -m corpusstudy.okf check   # knowledge bundle: OKF conformance + profile
+.venv/bin/python -m corpusstudy.indexing    # build the search index (indexes/, git-ignored)
+.venv/bin/python -m corpusstudy.retrieval search "Que dit Jean 3.16 ?"
+.venv/bin/python -m corpusstudy.retrieval eval
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint, rebuilds the Bibles, fails if any committed table or bundle file changes, then runs the tests and `okf check` on every push and pull request.
@@ -131,6 +135,37 @@ Cross-references use the old Online Bible abbreviations. "Jud" means Judges and 
 
 **Calvin.** Each excerpt starts with the verse Calvin comments on, quoted in italics with its reference. The excerpt is keyed to that passage (`refs`), and other passages it cites are kept as `mentions`. Only Calvin's own text is kept: the editor's introductions, footnotes and page numbers are dropped. The source has three wrong references; they are corrected in a reviewed table (`COMMENTARY_SOURCES[...].corrections`), and each correction is logged.
 
+## Search (Phase 4)
+
+`python -m corpusstudy.indexing` builds one SQLite file, `indexes/corpus.sqlite` (about 70 MB, 8 seconds). It contains:
+- **Bible:** 3-verse windows for each translation, in that translation's own numbering.
+- **Commentaries:** excerpts split on sentence boundaries, at most about 1,200 characters each.
+- **Knowledge:** one chunk per section of each OKF concept, carrying its trust metadata.
+
+Text is stemmed with Snowball (English and French). In English, KJV archaisms are first folded onto modern forms ("loveth" → "loves", "thou knowest" → "knows"), and in French elided articles are dropped ("l'Éternel" → "éternel").
+
+For each source a question produces several ranked lists:
+- the cited passage itself, read from the Bible;
+- commentary and knowledge about a cited passage (French references are converted to KJV numbering first);
+- commentary and knowledge about the verses its words matched best;
+- exact phrase, all-words and any-word BM25 matches (terms of 4 or more letters match as prefixes);
+- neighbours in the OKF link graph.
+
+The lists are combined with weighted reciprocal rank fusion, and Scripture, commentary and knowledge are interleaved in the results. Naming "Matthew Henry" or "Calvin" restricts commentary to that work. Knowledge concepts appear only when they are human-reviewed and stable (`CORPUS_USE_DRAFTS=false`). Dense vectors can be added later as one more list (`CORPUS_EMBEDDINGS`).
+
+**Evaluation** (`eval/retrieval.yaml`: 35 questions in English and French, each expected passage checked against the corpus):
+
+| Category | n | Recall@1 | Recall@5 | Recall@10 | MRR |
+|---|---|---|---|---|---|
+| Quotes, English / French | 7 / 4 | 0.86 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 | 0.93 / 1.00 |
+| References, English / French | 4 / 3 | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 |
+| Topics, English / French | 6 / 3 | 0.33 / 0.33 | 1.00 / 1.00 | 1.00 / 1.00 | 0.62 / 0.56 |
+| Commentary | 5 | 0.80 | 1.00 | 1.00 | 0.90 |
+| **All gated** | **32** | **0.75** | **1.00** | **1.00** | **0.86** |
+| Paraphrase (not gated) | 3 | 0.00 | 0.00 | 0.33 | 0.04 |
+
+A held-out set (`eval/retrieval_holdout.yaml`, 12 questions written after tuning and never used to tune) scores gated recall@5 = 1.00 and MRR 0.85, so the tuning did not overfit. Modern paraphrases of KJV wording ("love is patient") are the known gap of keyword-only search; dense vectors would address them. Median latency is about 20 ms per question.
+
 ## Phases
 
 The full plan, including how the knowledge layer follows Google's Open Knowledge Format (OKF) v0.2, is in [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
@@ -141,8 +176,8 @@ The full plan, including how the knowledge layer follows Google's Open Knowledge
 | 1 | Skeleton, config, canon, schemas | Claude | ✅ Done, OKF-aligned |
 | 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references (TSK skipped) |
 | 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
-| 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval | Claude | Next |
-| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | — |
+| 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
+| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | Next |
 | 6 | Router, generation, citation and provenance validator | Claude | — |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | — |
 | 8 | Docker, local run | Shared | — |

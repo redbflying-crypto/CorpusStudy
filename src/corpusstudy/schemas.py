@@ -300,6 +300,8 @@ class Retriever(StrEnum):
     FUSED = "fused"
     KNOWLEDGE = "knowledge"
     LOOKUP = "lookup"
+    REFERENCE = "reference"  # chunks about a passage cited in the question
+    GRAPH = "graph"  # neighbours of a matching knowledge concept
 
 
 class RetrievalResult(_Model):
@@ -307,6 +309,7 @@ class RetrievalResult(_Model):
     score: float
     retriever: Retriever
     rank: int = Field(ge=1)
+    via: list[str] = Field(default_factory=list, description="result lists that found it")
 
 
 class Route(StrEnum):

@@ -63,6 +63,9 @@ class CommentaryStore:
     def __len__(self) -> int:
         return len(self._by_id)
 
+    def __iter__(self):
+        return iter(self._by_id.values())
+
     def get(self, local_id: str) -> CommentaryExcerpt | None:
         return self._by_id.get(f"{self.source}:{local_id}")
 

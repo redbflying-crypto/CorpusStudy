@@ -1,0 +1,16 @@
+# Held-out retrieval cases (Phase 4): written after tuning on retrieval.yaml and never used
+# to tune search. Same format and categories as retrieval.yaml; every expected verse was
+# checked against the corpus text.
+
+- {q: "the wages of sin is death", lang: en, kind: bible, expect: [Rom.6.23], category: quote_en}
+- {q: "Blessed are the meek", lang: en, kind: bible, expect: [Matt.5.5], category: quote_en}
+- {q: "Je suis le chemin, la vérité, et la vie", lang: fr, kind: bible, expect: [John.14.6], category: quote_fr}
+- {q: "Genesis 1:26", lang: en, kind: bible, expect: [Gen.1.26], category: ref_en}
+- {q: "Psalm 119:105", lang: en, kind: bible, expect: [Ps.119.105], category: ref_en}
+- {q: "Apocalypse 21.4", lang: fr, kind: bible, expect: [Rev.21.4], category: ref_fr}
+- {q: "the new covenant", lang: en, kind: bible, expect: [Jer.31.31, Heb.8.8, Heb.8.13, Heb.12.24, 2Cor.3.6], category: topic_en}
+- {q: "Our Father which art in heaven", lang: en, kind: bible, expect: [Matt.6.9, Luke.11.2], category: topic_en}
+- {q: "la nouvelle alliance", lang: fr, kind: bible, expect: [Luke.22.20, 1Cor.11.25, 2Cor.3.6, Heb.8.8, Jer.31.31], category: topic_fr}
+- {q: "Matthew Henry on the good Samaritan", lang: en, kind: commentary, expect: [Luke.10.25-Luke.10.37], category: commentary}
+- {q: "Calvin on providence", lang: en, kind: commentary, topic: Providence, work: calvin, category: commentary}
+- {q: "God is our refuge in times of trouble", lang: en, kind: bible, expect: [Ps.46.1], category: paraphrase}
