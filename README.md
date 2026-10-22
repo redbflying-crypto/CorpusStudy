@@ -13,7 +13,7 @@ A personal Bible study chatbot. It combines a curated Markdown knowledge layer (
 | Stance | Protestant Evangelical, Reformed (Calvinist). Interpretive answers are labelled as the Reformed view. Where it matters, the answer briefly notes how other traditions differ, so tradition is never presented as Scripture. |
 | Audience | Personal use. |
 | Hosting | Local, with Docker. |
-| Knowledge format | Obsidian-style Markdown: YAML frontmatter plus `[[wikilinks]]`. See [`knowledge/README.md`](knowledge/README.md). |
+| Knowledge format | Google Open Knowledge Format (OKF) v0.2: a curated, version-controlled bundle of Markdown concepts with YAML frontmatter, provenance and human review. Adopted in Phase 3; see [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md). |
 
 ## Architecture
 
@@ -118,17 +118,20 @@ Cross-references use the old Online Bible abbreviations. "Jud" means Judges and 
 
 ## Phases
 
+The full plan, including how the knowledge layer follows Google's Open Knowledge Format (OKF) v0.2, is in [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
+
 | Phase | Scope | Who | Status |
 |---|---|---|---|
-| 0 | Decisions, API key, repo | You | ✅ Done |
-| 1 | Skeleton, config, canon, schemas, tests | Claude | ✅ Done |
-| 2 | Ingest KJV and Louis Segond 1910 | Claude | ✅ Done |
-| 2b | Commentaries | Claude, from files you supply | ✅ Calvin and Matthew Henry done; TSK not decided |
-| 3 | Chunking, keyword and vector indexes, hybrid retrieval | Claude | — |
-| 4 | Knowledge files (about 36) | Claude drafts, you review | — |
-| 5 | Router, generation, citation validator | Claude | — |
-| 6 | API, chat page, tests, evaluation set (50+ questions) | Claude drafts, you validate | — |
-| 7 | Docker and running it locally | Shared | — |
+| 0 | Decisions | You | ✅ Done; 5 new OKF questions |
+| 1 | Skeleton, config, canon, schemas | Claude | ✅ Done; OKF schema amendment |
+| 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done; TSK pending |
+| 3 | OKF bundle foundation: loader, validator, index/log, CLI, references | Claude | Next |
+| 4 | Chunking, FTS5 + vectors, hybrid and OKF-aware retrieval | Claude | — |
+| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | — |
+| 6 | Router, generation, citation and provenance validator | Claude | — |
+| 7 | API, chat page, evaluation set | Claude, **you validate** | — |
+| 8 | Docker, local run | Shared | — |
+| 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
 
 ## License
 
