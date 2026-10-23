@@ -18,7 +18,7 @@ CorpusStudy is a personal Bible-study assistant. It runs for one person, on thei
 
 It also draws on a curated knowledge bundle that a human reviewer approves. Answers are framed from the Reformed (Protestant, Calvinist) position, and other views are labelled.
 
-Appendix A covers extending the application: A.1 explains how to add new sources, and A.2 how to add new knowledge concepts.
+Appendix A covers extending the application: A.1 explains how to add new sources, A.2 how to add new knowledge concepts, and A.3 how to add new routes.
 
 ---
 
@@ -269,7 +269,7 @@ python -m corpusstudy.generation eval --cases eval/answers_holdout.yaml
 
 With `CORPUS_LLM_ROUTER=true`, open (`rag`) questions get one extra model call (`LLM.classify`) that may re-route them.
 
-**Adding a route:**
+**Adding a route** (step by step in Appendix A.3):
 1. add a value to `schemas.Route`;
 2. add a rule in `route.py` at the right place in the order;
 3. handle it in `answer._gather` or `_notes`, with a note in `prompts.ROUTE_NOTES` if needed;
@@ -892,3 +892,173 @@ python -m corpusstudy.okf maintain                                   # the gap s
 - [ ] `okf check` reports 0 errors, and the warnings are understood
 - [ ] Routing, retrieval and both evaluations pass; an evaluation case is added
 - [ ] It is submitted as a draft in a pull request; `okf verify` runs only on the owner's approval
+
+### A.3 How to add new routes
+
+#### A.3.1 What a route is
+
+A **route** is the kind of question the bot decides it is facing, chosen *before* anything is searched or generated. Every question gets exactly one. The route decides four things:
+
+1. **Whether the model is called at all.** A lookup ("John 3:16") is read straight from the Bible, and a refused request gets a fixed text: neither costs anything or can be wrong. Other routes call the model once, plus at most one repair.
+2. **What evidence is gathered, and how.**
+   - A comparison searches each book separately, so every Gospel is represented.
+   - A cross-reference question follows the cross-reference index.
+   - An open question uses the general hybrid search.
+3. **What comes first and what the model is told.**
+   - Fixed texts written by code come first: for example, crisis contacts on the pastoral route.
+   - Route-specific instructions go to the model: for example, "organise the answer book by book" for comparisons.
+4. **How the answer is labelled, logged and evaluated.** The route is shown as a tag on the chat page, written in the log line, and checked case by case in the evaluation sets.
+
+Routing is the job of `router/route.py`. It is **deterministic**: regular expressions over the question, plus the concept names known to search. Rules are tried in a fixed order and **the first match wins**, so every routing decision can be tested offline and explained (`Routing.reason`).
+
+| Order | Route | Chosen when the question… | Example | Model call |
+|---|---|---|---|---|
+| 1 | `refuse` | asks to demean, harass or incite against people | "Write insults about Catholics" | no |
+| 2 | `pastoral` | contains words of self-harm, abuse or despair | "I want to die" | yes, after the fixed safety message |
+| 3 | `lookup` | only asks for passage text | "Psalm 23", "Jean 3.16 en Segond" | no |
+| 4 | `crossref` | cites a passage and asks for related ones | "Passages parallel to Isaiah 53" | yes |
+| 5 | `compare` | compares books or accounts | "How do Matthew and Luke differ on the birth of Jesus?" | yes |
+| 6 | `interpretive` | asks about interpretations or traditions | "Main interpretations of Romans 9" | yes |
+| 7 | `hybrid` | names a knowledge concept and cites a passage | "Paul on love in 1 Corinthians 13" | yes |
+| 8 | `knowledge` | names a knowledge concept | "What is justification?" | yes |
+| 9 | `rag` | anything else (retrieval-augmented generation) | "How should I pray?" | yes |
+
+The result is a `Routing` object:
+- `route`, `language` and `reason`;
+- the parameters the route needs: `refs`, `concepts`, `books`, `concern`, `invalid_refs`;
+- the **modifiers**, which apply on top of any route and change notes, not handling:
+  - `advice`: medical, legal or financial; adds a fixed note first and an instruction to keep to biblical context;
+  - `translation` / `unavailable_translation`: a translation asked for;
+- `secondary`: knowledge or hybrid, recorded when another route won but the question also names a concept.
+
+With `CORPUS_LLM_ROUTER=true`, an open (`rag`) question gets one cheap model call (`LLM.classify`) that may re-route it to `compare`, `interpretive` or `crossref` (`Answerer._refine`). It never overrides a rule that matched, and it cannot route to `refuse`, `pastoral` or `lookup`.
+
+#### A.3.2 Do you need a new route?
+
+A route is the right tool only when a kind of question needs **different handling**. Choose the lightest change that works:
+
+| The kind of question needs… | Change | Where |
+|---|---|---|
+| better passages or ranking, with the same handling | tune retrieval | §6.3 |
+| the same handling, plus a fixed note or a caveat | a **modifier** (like `advice`) | `route.py`, `answer._notes` and `_model_notes` |
+| a different answer shape from the same evidence | an instruction for an existing route, or a new route with only a `ROUTE_NOTES` entry | `prompts.ROUTE_NOTES` |
+| **different evidence** (gathered another way), **no model call**, or a **fixed response** | a **new route** | this section |
+
+Each route adds patterns that can capture questions that used to route elsewhere, so a route that doesn't change handling costs more than it gives.
+
+#### A.3.3 Design it first
+
+Write these down (in the pull request) before coding:
+
+1. **Name:** one lowercase word, the `Route` value. It appears in the API, the logs, the evaluation sets and the page.
+2. **Trigger:**
+   - Which words, in **English and French**, mark the question? Patterns run on folded text (`_plain`: lower case, accents removed, curly apostrophes straightened), so write `evangiles`, not `Évangiles`.
+   - List questions that **must** match and near misses that **must not**.
+3. **Position in the order:**
+   - `refuse` and `pastoral` always stay first: no route may come before safety.
+   - `lookup` stays before anything that needs the model.
+   - Put the new route just before the most general route it should take questions from, and say which existing routes it will take questions from.
+4. **Parameters:** what the route extracts (books, a passage, a topic) and where it keeps them. Reuse `refs`, `books` and `concepts`; add a `Routing` field only if none fits.
+5. **Handling:**
+   - the evidence (which `Search` methods, with which filters);
+   - the fixed notes, in both languages;
+   - the model instruction;
+   - or no model call, with the response built in code.
+6. **What the evaluation can check offline:** route, parameters and evidence properties, such as "every compared book is represented in the evidence".
+
+#### A.3.4 Implement it
+
+| Step | File | What to do |
+|---|---|---|
+| 1 | `schemas.py` | Add the value to `Route`, with a comment and an example question |
+| 2 | `router/route.py` | Add the patterns (compiled at module level, EN and FR) and a helper if the route extracts parameters (as `compared_books` does). Add the branch in `route()` at the chosen position, returning `Routing(Route.X, language, refs, concepts, secondary=secondary, **base, reason="…")` so concepts and modifiers carry over. Update the module docstring's list |
+| 3 | `generation/answer.py` | **Evidence:** a branch in `_gather` (and a helper method). **Model instruction:** a branch in `_model_notes`. **Fixed notes:** `_notes`, with the texts in `_TEXT` for both languages. **No model call:** an early branch in `_answer`, as `REFUSE` and `LOOKUP` have, returning an `Answer` with the right `Outcome` |
+| 4 | `generation/prompts.py` | The `ROUTE_NOTES` entry: short, imperative, and never weakening the citation rules in `SYSTEM` |
+| 5 | `generation/prompts.py`, `answer._refine` | Optional: let the model-assisted router pick it. Add it to `CLASSIFY`, the `CLASSIFY_SCHEMA` enum and `_refine`, which must check the parameters the route needs, as it does for compare (at least two books) |
+| 6 | `okf/maintenance.py` | Add it to `TOPICAL` if knowledge concepts should cover its questions (they then count in coverage, gaps and the gap log) |
+| 7 | `api/static/index.html` | Add a label in `LABELS.route`, and a `.tag.<route>` style if it needs a colour |
+| 8 | `generation/evaluation.py` | In `evaluate_offline`, a branch for the offline-checkable properties (§A.3.3, item 6). Add a gated check to `OFFLINE_TARGETS` and a `summarise` entry |
+| 9 | `tests/test_generation.py` | Add questions to `test_routes` (matches and near misses, EN and FR). Add an answer-pipeline test with `FakeSearch` and `FakeClient` that checks the evidence gathered, the notes, and that the model call happens or not |
+| 10 | `eval/answers.yaml` | Add cases with `route:`, a new `category`, the parameters (such as `books:`) and a `gist`, and a few near misses routed elsewhere. Write held-out cases in `eval/answers_holdout.yaml` **separately**, and run them once at the end to confirm |
+| 11 | Docs | The README route diagram, §6.4 and the table in §A.3.1 |
+
+#### A.3.5 Validate
+
+```bash
+python -m corpusstudy.generation route "<each new example>"     # route, reason, parameters
+python -m corpusstudy.generation eval                          # every offline target at 100%
+python -m corpusstudy.generation eval --cases eval/answers_holdout.yaml
+pytest tests/test_generation.py && pytest
+python -m corpusstudy.generation eval --live --judge           # with the key: answer quality and cost
+```
+
+Read the offline evaluation's notes for cases whose `route` check now fails: they show which questions the new patterns took from other routes. Narrow the pattern; never edit an existing case to fit it. If the live run shows the route's answers being repaired or refused more often than other routes, its evidence or its instruction is wrong.
+
+#### A.3.6 Worked example: the `compare` route (Phase 7b)
+
+1. **Need:** for "Compare the resurrection accounts in the four Gospels", general search ranks passages by how well they match, so one Gospel can fill the evidence and the others go missing. That is an evidence problem, so it needed a new route.
+2. **Trigger** (`route.py`):
+   - `_GROUP_BOOKS` maps "the synoptics" and "the four Gospels" (and the French forms) to their books. The synoptics come first, because "les évangiles synoptiques" also contains "les évangiles".
+   - Otherwise, `compared_books` needs two or more named books **and** a comparing word (`_COMPARE`: compare, differ, versus, accounts, récits…).
+3. **Position:** after `crossref`, before `interpretive`, `hybrid` and `knowledge`, so "How do Matthew and Luke differ…" compares even though "Matthew" names a book concept. That concept stays in `concepts` and `secondary`.
+4. **Parameters:** `Routing.books`, a list of OSIS codes.
+5. **Evidence** (`answer._gather`): one search per book (`books=[book]`, `COMPARE_PER_BOOK = 3`, Scripture and commentary), interleaved, plus three knowledge results.
+6. **Instruction:** `ROUTE_NOTES["compare"]`: book by book, then agreements and differences, without harmonising away a real difference.
+7. **Model-assisted:** `CLASSIFY` can return `compare` with books, accepted only with at least two valid books.
+8. **Page:** the label "Comparison".
+9. **Evaluation:**
+   - offline checks: `books` (the books extracted) and `each_book` (every book is in the evidence);
+   - category `comparison` in both sets;
+   - near misses such as "What does Matthew say about prayer?" stay `knowledge` or `rag`.
+
+#### A.3.7 Sketch: a `summary` route
+
+A hypothetical route for "Summarise John 17" or "Résume Jean 17":
+
+- **Trigger:** `summari[sz]e|outline|overview|resume|resumer|plan de` together with exactly one chapter reference.
+- **Position:** after `lookup` ("John 17" alone is still a lookup), before `crossref`.
+- **Evidence:**
+  - the whole chapter: `search.passage_chunks(refs, language)`;
+  - Henry's chapter outline: `search.excerpt_chunks(f"henry-concise:{ref.book}.{ref.start_chapter}.outline")`;
+  - a short general search for commentary.
+- **Instruction:** "Summarise the chapter section by section, citing verse ranges; quote sparingly."
+- **Checks:** the route, and the evidence covering every verse of the chapter.
+
+```python
+# router/route.py
+_SUMMARY = re.compile(r"\bsummar\w*|\boutline\b|\boverview\b|\bresum\w*|\bplan de\b")
+...
+    if len(refs) == 1 and refs[0].start_verse is None and _SUMMARY.search(plain):
+        return Routing(Route.SUMMARY, language, refs, concepts, secondary=secondary, **base,
+                       reason="asks for a chapter summary")  # fmt: skip
+
+# generation/answer.py, in _gather
+        if routing.route == Route.SUMMARY:
+            ref = routing.refs[0]
+            out = self.search.passage_chunks(routing.refs, language)
+            out += self.search.excerpt_chunks(f"henry-concise:{ref.book}.{ref.start_chapter}.outline")
+            out += self.search.search(question, language, k=4, kinds=("commentary",))
+            return pack(out)
+```
+
+`refs` holds the passage in the question's own numbering. Commentary is keyed in KJV numbering, so map a French reference first, as `_cross_references` does with `map_passage`.
+
+#### A.3.8 Pitfalls
+
+- **Order is behaviour.** Moving a branch, or broadening a pattern, changes the route of questions you didn't think about. The two evaluation sets are the safety net; run both every time.
+- **Safety stays first.** Never put a route before `refuse` or `pastoral`. A pastoral question about a passage still gets the safety message first.
+- **Both languages.** A route reachable only in English gives French users a worse answer. Every pattern, fixed text and evaluation category needs a French version.
+- **Patterns run on folded text.** Accents are removed and the text is lower-cased before most patterns run. Book-name matching (`named_books`) uses the original text, where capitals matter.
+- **Validation still applies.** A route can change the evidence and the instruction, never the citation validator: every answer that calls the model goes through `validate()` and the repair-or-refuse step.
+- **No questions in logs.** The log line records the route and `reason`, never the question; keep `reason` free of question text.
+
+#### A.3.9 Checklist
+
+- [ ] The handling really differs (A.3.2), and the design is written down (A.3.3)
+- [ ] The `Route` value, patterns (EN and FR), branch position and `reason` are in place
+- [ ] Evidence, model instruction, fixed notes (both languages) or no-model handling are done
+- [ ] Optional: model-assisted routing, `TOPICAL`, page label
+- [ ] Unit tests (matches and near misses) and an answer-pipeline test are added
+- [ ] Tuned evaluation cases with a new category are added; held-out cases are written separately and run once
+- [ ] Both offline evaluations are at 100%, the full suite passes, and a live run was checked when the key is available
+- [ ] The README diagram, §6.4 and §A.3.1 are updated

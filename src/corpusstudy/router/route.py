@@ -99,7 +99,7 @@ _LOOKUP_WORDS = set(
     a kjv king james version bible passage chapter is in of and to us
     que qu quoi dit disent lire lis lisez texte verset versets citer cite cites montre
     montrez moi donne donnez passage chapitre le la les l de du des et s il te vous plait
-    lsg segond louis bible est ce dans""".split()
+    lsg segond louis bible est ce dans en""".split()
 )
 
 

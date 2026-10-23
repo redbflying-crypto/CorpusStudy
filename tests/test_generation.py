@@ -83,6 +83,8 @@ class Concepts:
         ("John 3:16", Route.LOOKUP),
         ("What does John 3:16 say?", Route.LOOKUP),
         ("Que dit Jean 3.16 ?", Route.LOOKUP),
+        ("Jean 3.16 en Segond", Route.LOOKUP),
+        ("Jean 3.16 en français ?", Route.RAG),
         ("Psalm 23", Route.LOOKUP),
         ("Explain John 3:16", Route.RAG),
         ("How should I pray?", Route.RAG),
