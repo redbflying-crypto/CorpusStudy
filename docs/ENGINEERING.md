@@ -1083,7 +1083,7 @@ A case is a question with what must come back:
 - {q: "Matthew Henry on the prodigal son", lang: en, kind: commentary, expect: [Luke.15.11-Luke.15.32], category: commentary}
 ```
 
-A case is a **hit** when a result in the top *k* is of that `kind` and overlaps an `expect` passage. For a Bible case, the result must also be in the answer language's translation and numbering. A commentary case may instead name a `topic` (and optionally a `work`) that the excerpt's headings must contain; the current cases all use passages.
+A case is a **hit** when a result in the top *k* is of that `kind` and overlaps an `expect` passage. For a Bible case, the result must also be in the answer language's translation and numbering. A commentary case may instead name a `topic` (and optionally a `work`) that the excerpt's headings must contain, which suits subject-arranged works: `{q: "Calvin on predestination and election", kind: commentary, topic: Election, work: calvin, ...}`.
 
 The metrics:
 - **recall@k**: the share of cases with a hit in the top *k*;
