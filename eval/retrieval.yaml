@@ -1,0 +1,57 @@
+# Retrieval evaluation set (Phase 4).
+#
+# Each case: a question, its language, what kind of chunk must come back, and the passages
+# (OSIS; Bible passages in that language's translation numbering, commentary in KJV
+# numbering) or commentary topic that count as a hit. A case is a hit when any of the top-k
+# results matches. Every expected verse was checked against the corpus text.
+#
+# Categories:
+#   quote_en / quote_fr   verse wording (KJV / Louis Segond 1910)
+#   ref_en / ref_fr       explicit references (Louis Segond numbering for French)
+#   topic_en / topic_fr   doctrinal or thematic words that occur in the text
+#   commentary            Calvin or Matthew Henry on a passage or topic
+#   paraphrase            modern wording absent from the KJV: a keyword-only search is
+#                         expected to struggle here; tracked, not gated, until vectors
+
+- {q: "For God so loved the world", lang: en, kind: bible, expect: [John.3.16], category: quote_en}
+- {q: "The LORD is my shepherd; I shall not want", lang: en, kind: bible, expect: [Ps.23.1], category: quote_en}
+- {q: "In the beginning was the Word", lang: en, kind: bible, expect: [John.1.1], category: quote_en}
+- {q: "charity suffereth long, and is kind", lang: en, kind: bible, expect: [1Cor.13.4], category: quote_en}
+- {q: "Trust in the LORD with all thine heart", lang: en, kind: bible, expect: [Prov.3.5], category: quote_en}
+- {q: "all things work together for good to them that love God", lang: en, kind: bible, expect: [Rom.8.28], category: quote_en}
+- {q: "by grace are ye saved through faith", lang: en, kind: bible, expect: [Eph.2.8], category: quote_en}
+
+- {q: "Car Dieu a tant aimé le monde", lang: fr, kind: bible, expect: [John.3.16], category: quote_fr}
+- {q: "L'Éternel est mon berger", lang: fr, kind: bible, expect: [Ps.23.1], category: quote_fr}
+- {q: "Au commencement était la Parole", lang: fr, kind: bible, expect: [John.1.1], category: quote_fr}
+- {q: "c'est par la grâce que vous êtes sauvés, par le moyen de la foi", lang: fr, kind: bible, expect: [Eph.2.8], category: quote_fr}
+
+- {q: "Romans 8:28", lang: en, kind: bible, expect: [Rom.8.28], category: ref_en}
+- {q: "What does Isaiah 53 teach?", lang: en, kind: bible, expect: [Isa.53], category: ref_en}
+- {q: "Explain 1 Cor 13:4-7", lang: en, kind: bible, expect: [1Cor.13.4-1Cor.13.7], category: ref_en}
+- {q: "Read Psalm 51", lang: en, kind: bible, expect: [Ps.51], category: ref_en}
+
+- {q: "Que dit Jean 3.16 ?", lang: fr, kind: bible, expect: [John.3.16], category: ref_fr}
+- {q: "Psaume 51.3", lang: fr, kind: bible, expect: [Ps.51.3], category: ref_fr}
+- {q: "Romains 8.28", lang: fr, kind: bible, expect: [Rom.8.28], category: ref_fr}
+
+- {q: "justification by faith", lang: en, kind: bible, expect: [Rom.3.28, Rom.5.1, Gal.2.16, Gal.3.24], category: topic_en}
+- {q: "the resurrection of the dead", lang: en, kind: bible, expect: [1Cor.15.12-1Cor.15.58, Matt.22.31, Acts.24.15, Heb.6.2], category: topic_en}
+- {q: "the fruit of the Spirit", lang: en, kind: bible, expect: [Gal.5.22], category: topic_en}
+- {q: "the whole armour of God", lang: en, kind: bible, expect: [Eph.6.11-Eph.6.13], category: topic_en}
+- {q: "must a man be born again?", lang: en, kind: bible, expect: [John.3.3-John.3.7, 1Pet.1.23], category: topic_en}
+- {q: "the ten commandments", lang: en, kind: bible, expect: [Exod.34.28, Deut.4.13, Deut.10.4, Exod.20, Deut.5], category: topic_en}
+
+- {q: "la justification par la foi", lang: fr, kind: bible, expect: [Rom.3.28, Rom.5.1, Gal.2.16, Gal.3.24], category: topic_fr}
+- {q: "le fruit de l'Esprit", lang: fr, kind: bible, expect: [Gal.5.22], category: topic_fr}
+- {q: "la résurrection des morts", lang: fr, kind: bible, expect: [1Cor.15.12-1Cor.15.58, Matt.22.31, Acts.24.15, Heb.6.2], category: topic_fr}
+
+- {q: "Matthew Henry on the prodigal son", lang: en, kind: commentary, expect: [Luke.15.11-Luke.15.32], category: commentary}
+- {q: "commentary on Romans 9", lang: en, kind: commentary, expect: [Rom.9], category: commentary}
+- {q: "blessed are the poor in spirit", lang: en, kind: commentary, expect: [Matt.5.3], category: commentary}
+- {q: "Calvin on predestination and election", lang: en, kind: commentary, topic: Election, work: calvin, category: commentary}
+- {q: "Que dit le commentaire sur Psaume 51.3 ?", lang: fr, kind: commentary, expect: [Ps.51.1], category: commentary}
+
+- {q: "love is patient and kind", lang: en, kind: bible, expect: [1Cor.13.4], category: paraphrase}
+- {q: "do not worry about tomorrow", lang: en, kind: bible, expect: [Matt.6.34], category: paraphrase}
+- {q: "God works everything for the good of those who love him", lang: en, kind: bible, expect: [Rom.8.28], category: paraphrase}

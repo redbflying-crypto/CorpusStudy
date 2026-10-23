@@ -1,0 +1,31 @@
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+
+# Downloaded / generated corpus data and indexes
+data/*
+!data/README.md
+indexes/
+
+# Hand-downloaded commentary files (imports/README.md)
+imports/*
+!imports/README.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+maintenance-report.md

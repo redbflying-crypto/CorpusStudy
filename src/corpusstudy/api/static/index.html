@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%236b3f1d'/%3E%3Cpath d='M15 7h2v6h6v2h-6v10h-2V15H9v-2h6z' fill='%23fff'/%3E%3C/svg%3E">
+<title>CorpusStudy</title>
+<style>
+:root {
+  --bg: #f7f5f0; --panel: #ffffff; --ink: #1f1d1a; --muted: #6b665d; --line: #e4dfd4;
+  --accent: #6b3f1d; --accent-ink: #ffffff; --quote: #f1ece2;
+  --ok: #1f7a4d; --ok-bg: #e3f3ea; --warn: #8a5a00; --warn-bg: #fbefd5;
+  --bad: #a3271f; --bad-bg: #fbe4e1; --info-bg: #ece8f6; --info: #4b3f8a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171614; --panel: #201f1c; --ink: #ece8df; --muted: #a39d92; --line: #35322d;
+    --accent: #d39b6a; --accent-ink: #1a1410; --quote: #2a2824;
+    --ok: #7fd1a5; --ok-bg: #1d3328; --warn: #f0c060; --warn-bg: #3a2f17;
+    --bad: #f19a90; --bad-bg: #3d1f1c; --info-bg: #2a2640; --info: #bdb2f2;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171614; --panel: #201f1c; --ink: #ece8df; --muted: #a39d92; --line: #35322d;
+  --accent: #d39b6a; --accent-ink: #1a1410; --quote: #2a2824;
+  --ok: #7fd1a5; --ok-bg: #1d3328; --warn: #f0c060; --warn-bg: #3a2f17;
+  --bad: #f19a90; --bad-bg: #3d1f1c; --info-bg: #2a2640; --info: #bdb2f2;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.55 Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+}
+header {
+  position: sticky; top: 0; z-index: 2; background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.bar {
+  max-width: 820px; margin: 0 auto; padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+h1 { font-size: 20px; margin: 0; letter-spacing: .3px; }
+h1 span { color: var(--muted); font-weight: normal; font-size: 14px; margin-left: 6px; }
+.spacer { flex: 1; }
+select, button, textarea { font: inherit; color: inherit; }
+select {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px;
+  font-family: system-ui, sans-serif; font-size: 14px;
+}
+#notice {
+  max-width: 820px; margin: 0 auto; padding: 0 16px 10px; font: 13px system-ui, sans-serif;
+  color: var(--warn);
+}
+#notice:empty { display: none; }
+main { max-width: 820px; margin: 0 auto; padding: 16px 16px 140px; }
+.empty { color: var(--muted); text-align: center; margin-top: 12vh; }
+.empty p { margin: 6px 0; }
+.examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+.examples button {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 12px; cursor: pointer; font: 14px system-ui, sans-serif;
+}
+.examples button:hover { border-color: var(--accent); }
+.msg { margin: 18px 0; }
+.user {
+  margin-left: auto; max-width: 85%; width: fit-content; background: var(--accent);
+  color: var(--accent-ink); padding: 10px 14px; border-radius: 14px 14px 4px 14px;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.bot {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 18px; overflow-wrap: anywhere;
+}
+.bot p { margin: 0 0 10px; }
+.bot blockquote {
+  margin: 8px 0 12px; padding: 8px 12px; background: var(--quote);
+  border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0;
+}
+.bot ul, .bot ol { margin: 0 0 10px; padding-left: 22px; }
+.bot h3, .bot h4 { margin: 12px 0 6px; font-size: 17px; }
+sup.ref a { color: var(--accent); text-decoration: none; font: 12px system-ui, sans-serif; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.tag, .badge {
+  font: 12px/1 system-ui, sans-serif; padding: 4px 8px; border-radius: 999px;
+  background: var(--info-bg); color: var(--info); white-space: nowrap;
+}
+.tag.refused, .tag.declined, .badge.bad { background: var(--bad-bg); color: var(--bad); }
+.tag.repaired, .badge.draft { background: var(--warn-bg); color: var(--warn); }
+.tag.answered, .tag.lookup, .badge.ok { background: var(--ok-bg); color: var(--ok); }
+.tag.safety, .tag.pastoral { background: var(--warn-bg); color: var(--warn); }
+.tag.refuse { background: var(--bad-bg); color: var(--bad); }
+.meta { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+.meta h5 {
+  margin: 0 0 6px; font: 600 12px system-ui, sans-serif; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chip {
+  border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 3px 8px;
+  font: 13px system-ui, sans-serif; cursor: pointer;
+}
+.chip.unverified { border-color: var(--bad); color: var(--bad); cursor: default; }
+.chip .tick { color: var(--ok); margin-left: 4px; }
+.passage {
+  font-size: 15px; background: var(--quote); border-radius: 8px; padding: 8px 12px;
+  margin-bottom: 10px;
+}
+.passage b { font: 600 12px system-ui, sans-serif; color: var(--muted); margin-right: 4px; }
+ol.sources { margin: 0; padding-left: 0; list-style: none; font: 14px system-ui, sans-serif; }
+ol.sources li { margin: 6px 0; display: grid; grid-template-columns: 28px 1fr; align-items: baseline; }
+ol.sources li .n { color: var(--accent); }
+ol.sources li .badge { margin-left: 6px; display: inline-block; }
+details { font: 13px system-ui, sans-serif; color: var(--muted); margin-top: 8px; }
+.typing { color: var(--muted); font-style: italic; }
+form {
+  position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.composer { max-width: 820px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 8px; }
+textarea {
+  flex: 1; resize: none; min-height: 46px; max-height: 160px; padding: 11px 12px;
+  border-radius: 12px; border: 1px solid var(--line); background: var(--panel);
+}
+textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button.send {
+  border: 0; border-radius: 12px; padding: 0 18px; background: var(--accent);
+  color: var(--accent-ink); cursor: pointer; font: 600 15px system-ui, sans-serif;
+}
+button.send:disabled { opacity: .5; cursor: default; }
+.error { color: var(--bad); font: 14px system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>CorpusStudy<span>KJV · Louis Segond 1910 · Calvin · Henry</span></h1>
+    <div class="spacer"></div>
+    <select id="lang" aria-label="Answer language">
+      <option value="">Auto language</option>
+      <option value="en">English</option>
+      <option value="fr">Français</option>
+    </select>
+  </div>
+  <div id="notice"></div>
+</header>
+
+<main id="log">
+  <div class="empty" id="empty">
+    <p>Ask about a passage, a doctrine, a person or an event.</p>
+    <p>Posez votre question en français ou en anglais.</p>
+    <div class="examples">
+      <button type="button">What does Romans 5:1 teach?</button>
+      <button type="button">Who was Abraham?</button>
+      <button type="button">Qu'est-ce que la grâce ?</button>
+      <button type="button">Psalm 23</button>
+    </div>
+  </div>
+</main>
+
+<form id="form">
+  <div class="composer">
+    <textarea id="q" rows="1" placeholder="Ask a question… / Posez une question…" aria-label="Question"></textarea>
+    <button class="send" id="send" type="submit">Ask</button>
+  </div>
+</form>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const log = $("#log"), form = $("#form"), q = $("#q"), send = $("#send");
+const history = [];
+const LABELS = {
+  route: { lookup: "Lookup", knowledge: "Knowledge", rag: "Search", hybrid: "Knowledge + search", pastoral: "Pastoral",
+           compare: "Comparison", crossref: "Cross-references", interpretive: "Interpretations", refuse: "Declined" },
+  outcome: { answered: "Verified", repaired: "Verified after repair", refused: "Not verified: passages shown",
+             lookup: "Read from the Bible", safety: "Safety message", declined: "Declined" },
+};
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function inline(s, id, nSources) {
+  return s
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[(\d{1,2})\]/g, (m, n) => (+n >= 1 && +n <= nSources)
+      ? `<sup class="ref"><a href="#${id}-s${n}">[${n}]</a></sup>` : m);
+}
+function markdown(text, id, nSources = 0) {
+  const blocks = text.replace(/\r/g, "").split(/\n\s*\n/);
+  return blocks.map((block) => {
+    const lines = block.split("\n");
+    const e = (l) => inline(esc(l), id, nSources);
+    if (lines.every((l) => /^\s*>/.test(l)))
+      return `<blockquote>${lines.map((l) => e(l.replace(/^\s*>\s?/, ""))).join("<br>")}</blockquote>`;
+    if (lines.every((l) => /^\s*[-*]\s+/.test(l)))
+      return `<ul>${lines.map((l) => `<li>${e(l.replace(/^\s*[-*]\s+/, ""))}</li>`).join("")}</ul>`;
+    if (lines.every((l) => /^\s*\d+\.\s+/.test(l)))
+      return `<ol>${lines.map((l) => `<li>${e(l.replace(/^\s*\d+\.\s+/, ""))}</li>`).join("")}</ol>`;
+    const h = block.match(/^(#{1,4})\s+(.*)$/);
+    if (h && lines.length === 1) return `<h${h[1].length > 2 ? 4 : 3}>${e(h[2])}</h${h[1].length > 2 ? 4 : 3}>`;
+    return `<p>${lines.map(e).join("<br>")}</p>`;
+  }).join("");
+}
+
+function add(html, cls) {
+  $("#empty")?.remove();
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.innerHTML = `<div class="${cls}">${html}</div>`;
+  log.appendChild(div);
+  div.scrollIntoView({ behavior: "smooth", block: "end" });
+  return div;
+}
+
+function trustBadge(source) {
+  if (source.source_type !== "knowledge") return `<span class="badge">Commentary</span>`;
+  return source.trust_tier === "human-reviewed"
+    ? `<span class="badge ok">Knowledge · Reviewed</span>`
+    : `<span class="badge draft">Knowledge · Draft</span>`;
+}
+
+let counter = 0;
+function renderAnswer(data) {
+  const a = data.answer, id = `a${++counter}`;
+  const notFound = a.outcome === "lookup" && !a.citations.some((c) => c.verified);
+  const tags = a.route === "refuse" ? [`<span class="tag refuse">Declined</span>`] : [
+                `<span class="tag ${a.route}">${LABELS.route[a.route] || a.route}</span>`,
+                notFound ? `<span class="tag refused">Reference not found</span>`
+                         : `<span class="tag ${a.outcome}">${LABELS.outcome[a.outcome] || a.outcome}</span>`];
+  if (a.interpretive) tags.push(`<span class="tag">Includes interpretation</span>`);
+  // The answer text ends with a Sources section for plain-text readers; the page lists them below.
+  const body = a.text.split(/\n\n\*\*Sources\*\*\n/)[0];
+  let html = `<div class="tags">${tags.join("")}</div>${markdown(body, id, a.sources.length)}`;
+  const meta = [];
+  if (a.citations.length) {
+    const chips = a.citations.map((c) => {
+      const ref = esc(c.display);
+      return c.verified
+        ? `<button type="button" class="chip" data-ref="${ref}" data-lang="${a.language}" data-box="${id}-p">${ref}<span class="tick" title="Verified against the corpus">✓</span></button>`
+        : `<span class="chip unverified" title="Not found in ${esc(c.translation)}">${ref} ✗</span>`;
+    }).join("");
+    meta.push(`<h5>Scripture · ${esc(a.citations[0].translation)}</h5><div class="chips">${chips}</div><div id="${id}-p"></div>`);
+  }
+  if (a.sources.length) {
+    const items = a.sources.map((s, i) => {
+      const n = s.marker || i + 1;
+      return `<li id="${id}-s${n}"><span class="n">[${n}]</span><span>${esc(s.label)}${trustBadge(s)}</span></li>`;
+    }).join("");
+    meta.push(`<h5>Sources</h5><ol class="sources">${items}</ol>`);
+  }
+  if (meta.length) html += `<div class="meta">${meta.join("")}</div>`;
+  const u = data.usage;
+  if (u && u.calls) {
+    const cost = u.cost_usd == null ? "" : ` · about $${u.cost_usd.toFixed(3)}`;
+    html += `<details><summary>${u.calls} model call${u.calls > 1 ? "s" : ""} · ${u.seconds}s${cost}</summary>` +
+            `${u.input_tokens} input and ${u.output_tokens} output tokens, ${u.cache_read_tokens} read from cache.</details>`;
+  }
+  if (data.warnings && data.warnings.length)
+    html += `<details><summary>Validation notes (${data.warnings.length})</summary><ul>${data.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></details>`;
+  return html;
+}
+
+log.addEventListener("click", async (ev) => {
+  const chip = ev.target.closest("button.chip");
+  if (chip) {
+    const box = document.getElementById(chip.dataset.box);
+    if (box.dataset.ref === chip.dataset.ref) { box.innerHTML = ""; box.dataset.ref = ""; return; }
+    box.dataset.ref = chip.dataset.ref;
+    box.innerHTML = `<div class="passage typing">…</div>`;
+    try {
+      const r = await fetch(`/passage?ref=${encodeURIComponent(chip.dataset.ref)}&lang=${chip.dataset.lang}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || r.statusText);
+      box.innerHTML = `<div class="passage">${d.verses.map((v) => `<b>${v.verse || "¶"}</b>${esc(v.text)}`).join(" ")}</div>`;
+    } catch (err) { box.innerHTML = `<div class="passage error">${esc(err.message)}</div>`; }
+    return;
+  }
+  const example = ev.target.closest(".examples button");
+  if (example) { q.value = example.textContent; form.requestSubmit(); }
+});
+
+form.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const message = q.value.trim();
+  if (!message || send.disabled) return;
+  q.value = ""; autosize();
+  add(esc(message), "user");
+  const pending = add(`<span class="typing">Searching the corpus and checking citations…</span>`, "bot");
+  send.disabled = true;
+  try {
+    const body = { message, history: history.slice(-10) };
+    if ($("#lang").value) body.language = $("#lang").value;
+    const r = await fetch("/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(typeof d.detail === "string" ? d.detail : JSON.stringify(d.detail));
+    pending.querySelector(".bot").innerHTML = renderAnswer(d);
+    history.push({ role: "user", content: message }, { role: "assistant", content: d.answer.text });
+  } catch (err) {
+    pending.querySelector(".bot").innerHTML = `<p class="error">${esc(err.message)}</p>`;
+  } finally {
+    send.disabled = false; q.focus();
+  }
+});
+
+function autosize() { q.style.height = "auto"; q.style.height = Math.min(q.scrollHeight, 160) + "px"; }
+q.addEventListener("input", autosize);
+q.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); form.requestSubmit(); }
+});
+
+fetch("/health").then((r) => r.json()).then((h) => {
+  const notes = [];
+  if (!h.api_key) notes.push("No API key is set: verse lookups and safety messages work; other questions need ANTHROPIC_API_KEY.");
+  if (h.index !== "fresh") notes.push(`Search index is ${h.index}: run python -m corpusstudy.indexing.`);
+  if (h.use_drafts) notes.push("Draft (unreviewed) knowledge is enabled.");
+  $("#notice").textContent = notes.join(" ");
+}).catch(() => {});
+</script>
+</body>
+</html>
