@@ -18,7 +18,7 @@ CorpusStudy is a personal Bible-study assistant. It runs for one person, on thei
 
 It also draws on a curated knowledge bundle that a human reviewer approves. Answers are framed from the Reformed (Protestant, Calvinist) position, and other views are labelled.
 
-Appendix A covers extending the application: A.1 explains how to add new sources, A.2 how to add new knowledge concepts, and A.3 how to add new routes.
+Appendix A covers extending the application: A.1 explains how to add new sources, A.2 how to add new knowledge concepts, A.3 how to add new routes, and A.4 how to tune retrieval.
 
 ---
 
@@ -231,7 +231,7 @@ Other rules:
   - Hyphenated words are joined first ("cross-references" does not name the Crucifixion).
   - Alias hygiene matters: see `KNOWLEDGE_FORMAT.md`, "Names".
 
-**Tuning procedure:**
+**Tuning procedure** (in full in Appendix A.4):
 1. Change the weights or lists.
 2. Run `python -m corpusstudy.retrieval eval`, and compare the gated recall@5, recall@10 and MRR, and each category, before and after.
 3. Run the held-out set **only to confirm**, never to tune: `--cases eval/retrieval_holdout.yaml`.
@@ -1062,3 +1062,176 @@ _SUMMARY = re.compile(r"\bsummar\w*|\boutline\b|\boverview\b|\bresum\w*|\bplan d
 - [ ] Tuned evaluation cases with a new category are added; held-out cases are written separately and run once
 - [ ] Both offline evaluations are at 100%, the full suite passes, and a live run was checked when the key is available
 - [ ] The README diagram, §6.4 and §A.3.1 are updated
+
+### A.4 How to tune retrieval
+
+#### A.4.1 What retrieval does, and what "good" means
+
+Retrieval chooses the **evidence** an answer may use. On the general routes the model sees 12 items (`Answerer.k`), a mix of Scripture windows, commentary excerpts and knowledge sections; it may cite nothing else. When retrieval misses the passage that answers the question, the best model can only say it cannot verify the answer. When it fills the 12 slots with near-duplicates, the answer is thin. Tuning means getting the right items into those slots, high up, in a useful mix.
+
+It is measured on two evaluation sets:
+
+| File | Cases | Role |
+|---|---|---|
+| `eval/retrieval.yaml` | 35 | **Tuned set:** look at it, change things, measure again |
+| `eval/retrieval_holdout.yaml` | 12 | **Held-out set:** run once to confirm a change; never tune on it |
+
+A case is a question with what must come back:
+
+```yaml
+- {q: "the LORD is my shepherd", lang: en, kind: bible, expect: [Ps.23.1], category: quote_en}
+- {q: "Matthew Henry on the prodigal son", lang: en, kind: commentary, expect: [Luke.15.11-Luke.15.32], category: commentary}
+```
+
+A case is a **hit** when a result in the top *k* is of that `kind` and overlaps an `expect` passage. For a Bible case, the result must also be in the answer language's translation and numbering. A commentary case may instead name a `topic` (and optionally a `work`) that the excerpt's headings must contain; the current cases all use passages.
+
+The metrics:
+- **recall@k**: the share of cases with a hit in the top *k*;
+- **MRR**: the mean of 1/rank of the first hit, 0 when there is none. It rewards putting the hit *first*.
+
+Categories:
+- `quote_en`, `quote_fr`: verse wording;
+- `ref_en`, `ref_fr`: an explicit reference;
+- `topic_en`, `topic_fr`: doctrinal words;
+- `commentary`: Calvin or Henry on a passage or topic;
+- `paraphrase`: modern wording that isn't in the KJV. It is **tracked, not gated** (`evaluation.UNGATED`) until vector search exists.
+
+Current figures:
+
+| | Gated recall@5 | Gated recall@10 | Gated MRR | Paraphrase recall@10 |
+|---|---|---|---|---|
+| Tuned set | 1.00 | 1.00 | 0.89 | 0.00 (3 cases) |
+| Held-out set | 1.00 | 1.00 | 0.85 | 1.00 (1 case) |
+
+The gates in `tests/test_retrieval.py` fail the build when:
+- on the tuned set: recall@10 is below 0.95, recall@5 below 0.9, MRR below 0.75, or any `quote_*` or `ref_*` category below 100% recall@5;
+- on the held-out set: recall@10 is below 0.9.
+
+The retrieval sets measure Bible and commentary retrieval. **Knowledge** retrieval is measured elsewhere:
+- concept naming: the `concept` check in the answer evaluation (`python -m corpusstudy.generation eval`);
+- coverage: `python -m corpusstudy.okf maintain`.
+
+#### A.4.2 The knobs, least invasive first
+
+| Knob | Where | Effect | After changing it |
+|---|---|---|---|
+| List weights | `search.WEIGHTS` | How much each ranked list counts in the fusion (§6.3) | Evaluate |
+| Fusion constant | `search.RRF_K` (60) | Lower: the top of each list dominates. Higher: agreement between lists dominates | Evaluate |
+| List depth | `Search.search(per_list=30)` | How deep each list is read before fusion | Evaluate; watch latency |
+| Results per answer | `Answerer.k` (12), `COMPARE_PER_BOOK` (3) | How much evidence the model sees: more recall, more cost and noise | Answer evaluation; live run for cost |
+| Prefix matching | `search._PREFIX_MIN` (4) | Terms of this length or more match as prefixes ("justif*") | Evaluate |
+| Kind interleaving | `Search._fuse` | Scripture, commentary and knowledge alternate, strongest kind first; asking for commentary puts it first | Evaluate; answer evaluation |
+| Graph expansion | `Search.search` (top 2 seeds per list, 1 hop) | How many neighbouring concepts join | Answer evaluation |
+| Commentator names | `search._WORKS` | "Henry" or "Calvin" in a question filters commentary | Evaluate the commentary cases |
+| Concept names | concept `aliases` (A.2.3) | Which questions name a concept | Answer evaluation; `okf check` |
+| Text analysis | `indexing/analysis.py`: `_ARCHAIC`, `_ETH_KEEP`, `STOPWORDS`, elision | Which terms match: "loveth" → "loves", stop words dropped | **Rebuild the index, bump `SCHEMA_VERSION`** |
+| Chunking | `chunking.bible_chunks(size=3, stride=2, max_size=10)`, commentary splitting | What a result *is*: 3-verse windows, sentence-aligned, at most 10 verses | **Rebuild the index, bump `SCHEMA_VERSION`** |
+| A new list | `Search.search`, `WEIGHTS` | A new way of finding candidates, such as vectors (A.4.6) | Rebuild; all of the above |
+
+Prefer the top of the table. Analysis and chunking changes affect every query and need a rebuild; weights are cheap to try and to revert.
+
+#### A.4.3 The procedure
+
+1. **Turn the problem into a case.** Write the failing question as a case in `eval/retrieval.yaml`, in the right category, with the passages that *should* come back. Check each expected passage against the corpus (`python -m corpusstudy.retrieval show KJV:Ps.23.1-Ps.23.6`); an expectation that is wrong will mislead every later run.
+2. **Record a baseline.**
+   ```bash
+   python -m corpusstudy.retrieval eval > /tmp/before.txt
+   ```
+   The output gives recall@1, @5, @10 and MRR per category, the gated and overall totals, and every miss.
+3. **Diagnose before changing anything.**
+   ```bash
+   python -m corpusstudy.retrieval search "the question" -k 12 [--lang fr] [--drafts]
+   ```
+   The first line shows the detected language, the references found and the **terms** after analysis. Each result shows the **lists that found it** (`phrase:bible`, `reference:commentary`, `keyword:knowledge`…). Use A.4.4 to go from symptom to knob.
+4. **Change one knob.** Try weights first without editing code (A.4.5).
+5. **Measure on the tuned set.**
+   ```bash
+   python -m corpusstudy.retrieval eval > /tmp/after.txt && diff /tmp/before.txt /tmp/after.txt
+   ```
+   Read the diff case by case, not just the totals. With 35 cases, one case moves a category by up to a third, and a gain in `topic_en` paid for by a loss in `quote_fr` is a regression.
+6. **Confirm on the held-out set, once.**
+   ```bash
+   python -m corpusstudy.retrieval eval --cases eval/retrieval_holdout.yaml
+   ```
+   If it fails, go back to diagnosing; don't adjust to the held-out set. When a held-out failure shows a general problem, add a *new* tuned case for it.
+7. **Check what depends on retrieval.**
+   ```bash
+   pytest tests/test_retrieval.py && pytest      # the gates and everything else
+   python -m corpusstudy.generation eval         # routing, concepts, comparisons: 100%
+   python -m corpusstudy.okf maintain            # concept coverage should not drop
+   python -m corpusstudy.generation eval --live  # with the key: citation accuracy and cost
+   ```
+8. **Record it.** Put the before and after numbers in the commit message, and update the figures in A.4.1 and §6.3 when the baseline moves.
+
+#### A.4.4 From symptom to knob
+
+| Symptom (from `retrieval search`) | Likely cause | What to try |
+|---|---|---|
+| A verse quoted word for word isn't in the top 5 | A word was stemmed or dropped unexpectedly (check `terms=`), or the KJV form differs ("hath", "-eth") | `analysis.py`: an archaism mapping or a stop word; never a per-question rule |
+| Modern wording ("love is patient") finds nothing | Keyword search can't bridge synonyms: the `paraphrase` category | Vectors (A.4.6). Don't add synonym lists for individual verses |
+| The right verse is found but ranked below loosely related ones | `keyword` (any word) outweighs `all` or `phrase` | Lower `keyword`, or raise `all` or `phrase`, and re-check `topic_*` |
+| Commentary on the cited passage ranks low | The `reference` weight, or the excerpt is keyed to a wider range (it ranks narrow ranges first) | `reference` weight; check the excerpt's `refs` with `retrieval show` |
+| The evidence is all one kind | The interleaving or a dominant list | The `_fuse` interleaving; per-list weights |
+| One book fills a comparison | `COMPARE_PER_BOOK` too high, or the per-book searches return too little | `COMPARE_PER_BOOK`; check the `books=` filter |
+| A concept isn't retrieved for questions that name it | Its title or aliases don't match the wording | Aliases (A.2.3), not weights |
+| Unrelated concepts appear | `graph` neighbours, or a too-generic alias | Lower `graph`; narrow the alias |
+| A French question gets no commentary | By design: the commentaries are English and are reached through references and matched verses (`hits`) | Check that the French reference maps to KJV (`versification.map_passage`) |
+| Results cut a sentence or carry too many verses | Chunking | `bible_chunks` parameters: rebuild, bump the schema. Single-verse windows were tried and rank worse |
+| A Calvin or Henry question returns the other commentator | `_WORKS` doesn't recognise the name form | Add the form to `_WORKS` (folded text) |
+
+#### A.4.5 Experimenting without editing code
+
+The weights, `RRF_K` and `_PREFIX_MIN` are module globals read on every query, so a short script can sweep them against the evaluation set:
+
+```python
+# python -I sweep.py   (from the repository root, with the index built)
+from corpusstudy.retrieval import search as S
+from corpusstudy.retrieval.evaluation import evaluate, load_cases, summarise
+
+engine = S.Search()
+cases = load_cases()
+for w in (0.5, 0.7, 0.9):
+    S.WEIGHTS["keyword"] = w
+    g = summarise(evaluate(engine, cases, k=10))["gated"]
+    print(f"keyword={w}: R@1 {g['recall@1']:.2f}  R@5 {g['recall@5']:.2f}  MRR {g['mrr']:.2f}")
+```
+
+Here the current 0.7 is as good as 0.5, and 0.9 loses a quote case at rank 5. Pick the setting from the tuned set, write it into `WEIGHTS`, then run A.4.3 steps 5 to 8. Sweeping several knobs at once against 35 cases fits the noise: change one or two.
+
+To compare **analysis or chunking** changes, build a second index next to the first and point the commands at it:
+
+```bash
+CORPUS_INDEX_DIR=/tmp/idx-b python -m corpusstudy.indexing           # built with your change
+CORPUS_INDEX_DIR=/tmp/idx-b python -m corpusstudy.retrieval eval     # versus the default index
+```
+
+#### A.4.6 Adding a list (vector search)
+
+Vector (embedding) search is the planned remedy for paraphrases. `CORPUS_EMBEDDINGS` accepts `voyage` and `local` but nothing reads it yet. A new list plugs into the fusion like the others:
+
+1. **Compute it at indexing time.** Embed every chunk with the configured backend and store the vectors, in the index or a sidecar file named after it. Bump `SCHEMA_VERSION`, and add the embedding model's name to the index `meta` so a model change makes the index stale.
+2. **Query it.** In `Search.search`, for each kind, add a list such as `lists["vector:bible"]`: the top `per_list` chunk ids by similarity, filtered with `_allowed` and the `books` filter like the FTS lists.
+3. **Weight it.** Add `"vector"` to `WEIGHTS`, starting near `all` (1.0), and to the retriever mapping in `_fuse`.
+4. **Tune and gate.** Tune on the `paraphrase` category with A.4.3, and check that `quote_*` and `ref_*` stay at 100%. Once paraphrase meets the gate on both sets, remove it from `UNGATED`.
+5. **Keep it optional.** With `CORPUS_EMBEDDINGS=none`, behaviour and tests must be exactly as before; CI runs in that mode.
+6. **Tell the owner about privacy.** With an API backend, indexing sends chunk text (public-domain sources and knowledge) to that provider, and every query sends the user's question too. Get the owner's agreement before turning it on; a local model avoids both.
+
+#### A.4.7 Pitfalls
+
+- **Never tune on the held-out set,** and never edit an existing case to make it pass. Fix the expectation only when it is demonstrably wrong against the corpus, and say so in the commit.
+- **One change at a time.** Two knobs moved together can cancel or hide each other.
+- **Small sets are noisy.** Read the individual cases that moved; a 0.03 change in MRR may be one case going from rank 1 to rank 2.
+- **Ties are deterministic.** Equal scores are broken by chunk id, so a run is reproducible, but an "improvement" can be a tie broken differently.
+- **CI is Bible-only.** Commentary cases are dropped there; run the commentary categories locally with the commentaries imported.
+- **Rebuilds.** Analysis and chunking changes need `python -m corpusstudy.indexing` locally and a `SCHEMA_VERSION` bump, or Docker installations keep their old index.
+- **Latency.** A deeper `per_list` or more lists slow every question. Time `retrieval search` before and after; an answer's `usage.seconds` shows the total.
+
+#### A.4.8 Checklist
+
+- [ ] The problem is a case in the tuned set, and its expected passages are checked against the corpus
+- [ ] There is a baseline, the cause is diagnosed with `retrieval search`, and one knob is changed
+- [ ] The tuned set is read case by case; the gates hold and `quote_*` / `ref_*` stay at 100%
+- [ ] The held-out set is run once, and it passes
+- [ ] The answer evaluation is at 100%, `okf maintain` coverage hasn't dropped, the full suite passes, and a live run is done if the key is available
+- [ ] Analysis or chunking changes come with a rebuilt index and a `SCHEMA_VERSION` bump
+- [ ] The before and after numbers are in the commit message, and A.4.1 and §6.3 are updated
