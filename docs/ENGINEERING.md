@@ -18,7 +18,7 @@ CorpusStudy is a personal Bible-study assistant. It runs for one person, on thei
 
 It also draws on a curated knowledge bundle that a human reviewer approves. Answers are framed from the Reformed (Protestant, Calvinist) position, and other views are labelled.
 
-Appendix A covers extending the application; A.1 explains how to add new sources.
+Appendix A covers extending the application: A.1 explains how to add new sources, and A.2 how to add new knowledge concepts.
 
 ---
 
@@ -467,6 +467,8 @@ Plan it as a phase; Appendix A.1.4 lists every step.
 
 **Change a fixed text** (safety, advice, refusal or translation). Edit `answer.SAFETY` or `answer._TEXT` in both languages. The safety tests and the offline evaluation check that they appear first. The owner reviews crisis numbers and wording.
 
+**Add a new knowledge concept:** see Appendix A.2.
+
 **Approve a concept.** Only on the owner's explicit approval: `python -m corpusstudy.okf verify <concept> --by human:<id>`, commit, then rebuild or restart.
 
 ---
@@ -726,3 +728,167 @@ Concepts cite sources by anchor, so a source can't simply disappear.
 3. Remove the source's registrations (A.1.3 steps 1–4, or A.1.4 steps 1–5), its lock entries and its `Reference` concept.
 4. Run `okf check` (0 errors), both evaluations and the full suite.
 5. Re-importing a *new version* of the same source is a replacement too. Changed excerpt ids or wording show up as `okf check` errors on the concepts that quote them.
+
+### A.2 How to add new concepts
+
+A *concept* is one Markdown file in `knowledge/`: a book, theme, person, doctrine, event or parable. The bot uses it in answers once the owner has reviewed it. The format and the producer profile are defined in [`KNOWLEDGE_FORMAT.md`](KNOWLEDGE_FORMAT.md). This section is the procedure, from choosing a subject to getting the concept into answers.
+
+Two rules hold throughout:
+
+- **Only the owner approves.** Never run `okf verify` without the owner's explicit approval of that concept, and never stamp it with your own id to unblock something. An unreviewed concept is simply unused (`CORPUS_USE_DRAFTS=false`).
+- **Every claim is sourced.** Every statement is footnoted to a public-domain passage or excerpt, and every quotation is word for word. `okf check` enforces both; don't weaken the check to make a concept pass.
+
+#### A.2.1 Choose the subject
+
+1. **Start from the gaps.** `python -m corpusstudy.okf maintain` lists the questions no concept covers, the words that recur among them, and the books without a Book concept. With `CORPUS_GAP_LOG` on, it also lists questions from real use.
+2. **Check that no concept already covers it.** Look in `knowledge/*/index.md` and run `python -m corpusstudy.okf graph`. Run `python -m corpusstudy.generation route "<a question about it>"` and `python -m corpusstudy.retrieval search "<question>" --drafts`. Extending a concept (A.2.7) is often better than adding a neighbour that competes with it for the same questions.
+3. **Keep to one subject per concept**: *Prayer*, not *Prayer and fasting*. Answers cite concepts section by section, and a sharp subject ranks better.
+4. **Pick the type, the folder and the slug.** The slug is lowercase words joined by hyphens (`kingdom-of-god`). It becomes the concept's id (`themes/kingdom-of-god`) and is permanent: renaming means deprecating (A.2.7).
+
+| Type | Folder | Sections, in this order |
+|---|---|---|
+| `Bible Book` | `books/` | Overview, Setting, Outline, Themes, Key passages |
+| `Theme` | `themes/` | Overview, Development through Scripture, Reformed view, Key passages |
+| `Person` | `people/` | Summary, Life, Significance, Key passages |
+| `Doctrine` | `doctrines/` | Definition, Reformed view, Where other traditions differ, Key passages |
+| `Event` | `events/` | Summary, Context, Significance, Key passages |
+| `Parable` | `parables/` | Summary, Setting, Meaning, Interpretive notes, Key passages |
+
+A subject that fits none of these needs a new type first (§6.7).
+
+#### A.2.2 Path 1: let Claude draft it (`okf propose`)
+
+This is the quickest path. It needs the API key and the built corpus and index.
+
+```bash
+git switch -c knowledge/prayer
+python -m corpusstudy.okf propose Theme prayer "Prayer" \
+    --question "How should I pray?" --question "How can I be sure God hears my prayers?" \
+    --passage "Matt 6:5-15" --passage "Luke 11:1-13" --passage "Phil 4:6-7"
+```
+
+- **`--question`**: the gap questions the concept should answer. They steer both the evidence and the writing.
+- **`--passage`**: the passages you know matter. Search alone can miss them: for prayer, keyword search does not find the Lord's Prayer from the word "Prayer". Their KJV text and the commentary on them come first in the evidence.
+
+The command prints the file it wrote, its sources, any warnings, and the model calls and estimated cost. It writes nothing if the draft fails the checks twice; widen the evidence with `--passage` and run it again.
+
+**Then read the draft as a reviewer would:**
+- Is every claim supported by the footnoted source?
+- Is the Reformed reading presented first and fairly?
+- Are the other views labelled "not drawn from the corpus"?
+- Are the aliases specific (A.2.3)?
+
+Edit by hand where needed, then record your edit as the author of the current content: `python -m corpusstudy.okf touch themes/prayer --by human:<your-id>`. The concept stays a draft. Continue at A.2.4.
+
+#### A.2.3 Path 2: write it by hand
+
+```bash
+git switch -c knowledge/prayer
+python -m corpusstudy.okf new Theme prayer "Prayer" --by human:<your-id>
+```
+
+`okf new` writes `knowledge/themes/prayer.md`: the frontmatter fields with empty values, `status: draft`, `generated` with your actor and the time, the type's section headings, plus a log entry and the refreshed indexes. Then fill it in.
+
+**Frontmatter:**
+
+| Field | What to write |
+|---|---|
+| `title` | The name readers use ("Prayer", "The Parable of the Sower") |
+| `description` | One sentence; shown in indexes and to the model |
+| `tags` | A few lowercase words |
+| `title_fr` | The French title (required: answers are bilingual) |
+| `aliases`, `aliases_fr` | Other names a question would use. The router matches titles and aliases as whole words, so: prefer phrases ("the Lord's Prayer", "life of prayer"); no bare common words ("ask", "holy", "law"); no names shared by several people ("Saul", "Simon"); nothing that is another concept's title or alias |
+| `key_passages` | 2 to 6 passages in KJV numbering, written `"Matt 6:5-15"`. Theme, Doctrine, Event and Parable concepts also turn them into cross-references between those passages |
+| `sources` | One entry per cited source: `id` (the footnote label), `resource` (the anchor, below) and `title` |
+| `tradition` | `reformed` |
+| `other_views` | `true` when the concept summarises other traditions |
+| `stale_after` | Optional: a date after which the concept stops being used until it is re-reviewed (for content that dates) |
+
+**Source anchors:**
+
+| Source | `resource` | Example | Find it with |
+|---|---|---|---|
+| KJV | `/references/sources/kjv.md#<OSIS>` in KJV numbering | `#Matt.6.5-Matt.6.15` | `python -m corpusstudy.retrieval show KJV:Matt.6.5-Matt.6.15` |
+| Louis Segond 1910 | `/references/sources/lsg1910.md#<OSIS>` in **LSG** numbering | `#Ps.51.3` | `... show LSG1910:Ps.51.3` |
+| Matthew Henry | `/references/sources/henry-concise.md#<excerpt id>` | `#Matt.6.9-Matt.6.15` | `... search "Henry lord's prayer"`, then `... show henry-concise:Matt.6.9-Matt.6.15` |
+| Calvin | `/references/sources/calvin-lcc.md#<excerpt id>` | `#x-p112` | `... search "Calvin prayer"`, then `... show calvin-lcc:x-p112` |
+
+Always copy excerpt ids from `search` or `show` output; never guess one. A search result id may end in `#2` (a part of a long excerpt); the anchor is the excerpt id without it.
+
+**Body:**
+- Use the type's sections as `#` headings, in order; search records what each section holds from its heading.
+- End each claim, or group of claims, with its footnote markers: `…the disciples asked to be taught.[^kjv-luke11-1]`. Define each footnote at the end of the file: `[^kjv-luke11-1]: Luke 11:1-4 (KJV)`. Each `sources` id is cited at least once, and every marker matches a `sources` id.
+- Quotations in "double quotes" must appear word for word in a source whose marker follows them in the same paragraph. Use an ellipsis (`...`) to join fragments, and quote the KJV wording for Scripture.
+- Present the Reformed reading first, citing Calvin or Henry where they speak to it.
+- Other traditions go in a labelled paragraph ("These are summaries for orientation, not drawn from the corpus:") with no quotations and no footnotes. Keep it short and fair.
+- Link related concepts with bundle-absolute Markdown links: `[grace](/themes/grace.md)`. No `[[wikilinks]]`. Links feed the graph, which retrieval uses for one-hop expansion.
+- The Key passages section lists the passages as plain references and may link related concepts.
+
+Copy an existing concept of the same type for the tone and density; `parables/sower.md` and `doctrines/justification.md` are good models.
+
+#### A.2.4 Check it
+
+```bash
+python -m corpusstudy.okf check        # repeat until 0 errors; read the warnings too
+```
+
+| Message | Fix |
+|---|---|
+| ``missing `title_fr` `` / ``missing `key_passages` `` / ``missing `description` `` | Fill in the field |
+| `key passage '…': …` | Not a valid reference, or the verse doesn't exist in the KJV |
+| ``footnote [^x] has no matching `sources` id`` / `is not defined in the body` | Add the `sources` entry or the `[^x]:` definition; check spelling |
+| ``source `x`: bad passage anchor`` / `no excerpt '…' in …` | Wrong anchor: copy it again from `retrieval show` (A.2.3) |
+| `quotation "…" not found in …` | The quote isn't word for word, or its footnote names the wrong source. Fix the words or the marker, or paraphrase without quotation marks |
+| `a 'Theme' concept belongs in themes/` | The file is in the wrong folder for its `type` |
+| warning: ``source `x` is never cited by a footnote`` | Cite it or remove it |
+| warning: `quotation "…" has no footnote` | Add the marker after it in the same paragraph |
+| warning: `link to missing concept` | Fix the link, or leave it if that concept is planned |
+| warning: ``source `x` text not available; quotes unchecked`` | A commentary isn't imported here; import it so quotations are checked before review |
+
+#### A.2.5 Check how it behaves
+
+Drafts aren't used in answers, so test with drafts turned on:
+
+```bash
+python -m corpusstudy.indexing                                      # the knowledge changed
+python -m corpusstudy.generation route "How should I pray?"          # does it name the concept?
+python -m corpusstudy.retrieval search "How should I pray?" --drafts # which sections come back, via which lists
+python -m corpusstudy.generation ask "How should I pray?" --drafts   # a live answer (API key)
+python -m corpusstudy.generation eval                                # all offline targets still 100%
+python -m corpusstudy.retrieval eval                                 # gates in §6.3 still met
+python -m corpusstudy.okf maintain                                   # the gap should now be covered
+```
+
+- **The concept doesn't come up:** add an alias for the wording people use, or make the opening section state the subject plainly.
+- **Other questions now route to it** (the offline evaluation fails on `concept` or `routing`): an alias is too broad. Remove it; never weaken the evaluation case.
+- **Add evaluation cases:** at least one question in `eval/answers.yaml` (`route: knowledge`, `concept: themes/prayer`, a `gist` the owner can check). The held-out set stays untouched until a later confirmation run.
+
+#### A.2.6 Submit it for review
+
+1. Commit on the branch:
+   - the concept;
+   - the regenerated `index.md` files and `log.md` (the commands update them);
+   - the evaluation cases.
+2. Open a pull request. List each new concept with what the reviewer should look at: contested points, anything summarised from general knowledge, and sources that cover a claim only indirectly.
+3. CI runs the tests and `okf check`; the index marks the concept "(draft)".
+4. The owner reviews in the pull request and either asks for changes or approves the concept by name ("approve themes/prayer").
+5. **Only on that approval**, run `python -m corpusstudy.okf verify themes/prayer`. It stamps the configured reviewer (`CORPUS_REVIEWER`), sets `status: stable` and logs a Review entry. It refuses a concept that fails the profile.
+6. Commit the stamped file and merge. On the owner's machine, `git pull` and `docker compose restart`: the index is stale, so it is rebuilt on start, and the concept is used in answers from then on.
+
+#### A.2.7 Change, replace or retire a concept
+
+- **Edit a reviewed concept:** change the file, then run `okf touch <id> --by human:<your-id>`. The concept goes back to draft and leaves answers until it is reviewed again; its earlier reviews stay as history. A stable concept edited without `touch` fails `okf check`.
+- **Merge or retire:** `okf deprecate <id> --reason "merged into themes/prayer"`. The file stays for history and links; the maintenance report lists links that still point to it.
+- **Rename:** ids are paths, so create the new concept (A.2.2 or A.2.3), deprecate the old one with a reason naming the new one, and update the links pointing to the old one.
+- **A source changed under a concept:** the maintenance report lists reviewed concepts whose source was regenerated, and `okf check` flags any quotation that no longer matches. Fix the concept, touch it and send it for review.
+
+#### A.2.8 Checklist
+
+- [ ] The subject comes from a gap or the owner's request, and no existing concept covers it
+- [ ] The type, folder and slug are right, and the sections are in order
+- [ ] `title_fr`, `key_passages`, specific aliases and `description` are filled in
+- [ ] Every claim is footnoted to a real anchor, and every quotation is word for word
+- [ ] The Reformed reading comes first; other views are labelled and kept short
+- [ ] `okf check` reports 0 errors, and the warnings are understood
+- [ ] Routing, retrieval and both evaluations pass; an evaluation case is added
+- [ ] It is submitted as a draft in a pull request; `okf verify` runs only on the owner's approval
