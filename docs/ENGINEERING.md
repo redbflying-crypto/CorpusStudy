@@ -18,7 +18,7 @@ CorpusStudy is a personal Bible-study assistant. It runs for one person, on thei
 
 It also draws on a curated knowledge bundle that a human reviewer approves. Answers are framed from the Reformed (Protestant, Calvinist) position, and other views are labelled.
 
-Appendix A covers extending the application: A.1 explains how to add new sources, A.2 how to add new knowledge concepts, A.3 how to add new routes, and A.4 how to tune retrieval.
+Appendix A covers extending the application: A.1 explains how to add new sources, A.2 how to add new knowledge concepts, A.3 how to add new routes, A.4 how to tune retrieval, and A.5 how to change the model.
 
 ---
 
@@ -303,7 +303,7 @@ With `CORPUS_LLM_ROUTER=true`, open (`rag`) questions get one extra model call (
   These are reviewed by the owner. Change them only with the owner, and keep the English and French texts in step.
 - **Evidence** (`evidence.py`): Scripture is cited by reference in the text; commentary and knowledge by `[E#]`, renumbered `[1]`, `[2]`… in order of first use.
 
-**Changing the model:**
+**Changing the model** (in full in Appendix A.5):
 1. set `CORPUS_LLM_MODEL` or `config.DEFAULT_MODEL`;
 2. add its price to `llm.PRICES` (input, output, cache read, cache write, per million tokens);
 3. check that the model supports structured outputs, `effort` and the fallback beta;
@@ -1235,3 +1235,129 @@ Vector (embedding) search is the planned remedy for paraphrases. `CORPUS_EMBEDDI
 - [ ] The answer evaluation is at 100%, `okf maintain` coverage hasn't dropped, the full suite passes, and a live run is done if the key is available
 - [ ] Analysis or chunking changes come with a rebuilt index and a `SCHEMA_VERSION` bump
 - [ ] The before and after numbers are in the commit message, and A.4.1 and §6.3 are updated
+
+### A.5 How to change the model
+
+#### A.5.1 What "the model" is here
+
+Every call to the Anthropic API goes through one class, `generation/llm.LLM`, which calls one model: `CORPUS_LLM_MODEL`, with `config.DEFAULT_MODEL` as the default. Changing it changes every job the model does:
+
+| Job | Method | Settings | When |
+|---|---|---|---|
+| Answer a question, and the one repair round | `LLM.ask` | `CORPUS_LLM_EFFORT`, `CORPUS_LLM_MAX_TOKENS` | Every question except lookups and refusals |
+| Refine an open question's route | `LLM.classify` | effort `low`, 1,024 tokens | Only with `CORPUS_LLM_ROUTER=true` |
+| Judge an answer's faithfulness | `LLM.judge` | effort `medium`, 4,096 tokens | Only in `eval --live --judge` |
+| Draft a concept for a gap | `LLM.draft` | `CORPUS_LLM_EFFORT`, `CORPUS_LLM_MAX_TOKENS` | Only in `okf propose` |
+
+Every request (`LLM._call`) uses the same features, and each one depends on the model:
+
+| Feature | How the code uses it | What to check for a new model |
+|---|---|---|
+| Structured output | `output_config.format` with a JSON schema; the reply is parsed as JSON | Supported (it replaces assistant prefill, which current models reject) |
+| Effort | `output_config.effort` from `CORPUS_LLM_EFFORT`, always sent explicitly | Which levels the model accepts. The config validator allows `low`, `medium`, `high`, `xhigh` and `max`, and **the default differs between models**, which is why the code always sends it |
+| Thinking | The `thinking` parameter is **not sent**; current models then think adaptively | On some older models, leaving it out means *no* thinking. Such a model needs `thinking={"type": "adaptive"}` added in `_call` |
+| Refusal fallback | `fallbacks="default"` with the beta `llm.FALLBACK_BETA`: a request the model declines on safety grounds is re-run server-side on a fallback model | Not every model accepts it, and it exists only on the Claude API. Remove it, or make it conditional, for a model or platform without it |
+| Refusals | `stop_reason == "refusal"` → `Reply.declined` → `Outcome.DECLINED` | Same on every current model |
+| Prompt caching | `cache_control` on the system prompt | Each model has a minimum cacheable prefix length. The answer system prompt (`prompts.SYSTEM`) is roughly 870 tokens; below the minimum, caching silently does nothing: no error, only a higher cost |
+| Output length | `max_tokens` 16,000 for answers and drafts, 1,024 for routing, 4,096 for judging; thinking counts against it | When the limit is hit, `stop_reason` is `max_tokens`, the reply is empty, the answer goes through repair and then refusal, and routing falls back to `rag` |
+| Repair turn | The first reply's content blocks, thinking included, are sent back **unchanged** (`answer._replayable`) | Keep it append-only: current models reject or drop edited thinking blocks |
+| Sampling | `temperature`, `top_p` and `top_k` are never sent | The API now rejects them on every model; don't add them |
+| Cost | `llm.PRICES[model]` = (input, output, cache read, cache write) in US dollars per million tokens, priced by **the model that served the call** (`response.model`, which may be the fallback model) | Add the new model's prices. A model missing from `PRICES` gives `cost_usd = None`: answers still work, but the log and the evaluation lose cost |
+
+Nothing stored depends on the model. The corpus, the index, the knowledge bundle and the evaluation sets stay as they are, so switching back is just a setting change.
+
+#### A.5.2 Which change do you need?
+
+| Goal | Change | Who |
+|---|---|---|
+| Try a model on one installation | `CORPUS_LLM_MODEL=<model-id>` in `.env`, then `docker compose up -d` | The owner, or you locally |
+| Change the project's default | `config.DEFAULT_MODEL`, `llm.PRICES` and the docs, through a pull request | You, with the owner's agreement: cost and answer quality are the owner's call |
+| Cheaper or deeper answers on the same model | `CORPUS_LLM_EFFORT` (`low` … `max`) | Try this first: lower effort on a current model often matches an older model at higher effort, with one cache and no migration |
+| A different model for one job only | An extension (A.5.6) | You |
+
+#### A.5.3 Before you start
+
+1. **Read Anthropic's documentation** for the target model. Code examples change between model generations, so rely on these pages rather than memory:
+   - models overview (IDs, context windows, output limits): <https://platform.claude.com/docs/en/about-claude/models/overview>
+   - migration guide (breaking changes per model): <https://platform.claude.com/docs/en/about-claude/models/migration-guide>
+   - pricing: <https://platform.claude.com/docs/en/about-claude/pricing>
+   - effort: <https://platform.claude.com/docs/en/build-with-claude/effort>
+   - refusals and fallback: <https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback>
+2. **Ask the Models API** what the model supports, with the project's own key:
+   ```python
+   import anthropic
+   m = anthropic.Anthropic().models.retrieve("<model-id>")
+   print(m.display_name, m.max_input_tokens, m.max_tokens, m.capabilities)
+   ```
+3. **Check A.5.1's table against what you read:** effort levels and default, thinking when the parameter is omitted, server-side fallback, the minimum cacheable prefix, output limit and prices.
+4. **Agree the trial with the owner.** A live evaluation costs money: the cost per question is in the evaluation output, so estimate from a previous run.
+
+#### A.5.4 Steps
+
+1. **Add the prices** to `llm.PRICES`: input, output, cache read and cache write (5-minute TTL), per million tokens, from the pricing page. If server-side fallback stays on, the models it can fall back to need entries too.
+2. **Point the code at the model:** `CORPUS_LLM_MODEL=<model-id>` for a trial, or `config.DEFAULT_MODEL` for a project change.
+3. **Adapt the request in `LLM._call`, only where A.5.3 showed a difference:**
+   - add `thinking={"type": "adaptive"}` when the model doesn't think by default;
+   - drop `betas` and `fallbacks` (or make them depend on the model) when it lacks server-side fallback;
+   - narrow `Settings._effort` if it lacks an effort level;
+   - lower `CORPUS_LLM_MAX_TOKENS` if its output limit is smaller.
+
+   `tests/test_generation.py` asserts the request shape (fallback beta, effort, JSON schema, cached system prompt, no sampling or thinking parameters); update those assertions together with any deliberate change.
+4. **Run the offline checks.** Run `pytest` and `python -m corpusstudy.generation eval`. These don't call the model, so they show only that nothing else broke.
+5. **Run a smoke test.** `python -m corpusstudy.generation smoke` makes two live answers: check that they are verified, and look at the usage line.
+6. **Compare live evaluations.** Run `python -m corpusstudy.generation eval --live --json before.json` on the old model and `--json after.json` on the new one, on the same commit. Compare:
+   - **citation accuracy**, **answers all verified**, **safety first** and **cannot-verify correctness**: the live targets, which must stay at 100%;
+   - the share of answers **repaired** or **refused** (passages shown instead): a rise means the model follows the citation rules less well;
+   - **cost per question** and **seconds per question**.
+
+   `--judge` uses the model under test as the judge, so its scores before and after aren't comparable. Rely on the deterministic metrics, or keep the judge fixed (A.5.6).
+7. **Check caching.** Ask two questions and compare the response `usage` (shown on the chat page): the second should show `cache_read_tokens`. If it stays at 0, the system prompt is below the model's minimum cacheable prefix. That is harmless but costs more; accept it, or lengthen the stable part of the system prompt only if the owner wants the saving.
+8. **Check the other jobs.**
+   - With `CORPUS_LLM_ROUTER=true`, the router evaluation cases should still route as expected, and `classify` must answer within its 1,024 tokens.
+   - Run `okf propose` once on a test branch: the draft must pass `okf check`. Delete it afterwards unless the owner wants it.
+9. **Owner review.** Show the owner a few answers from each category: doctrine, pastoral, comparison, French. The fixed safety texts are code and don't change, but the tone, the Reformed framing and the labelling of other views come from the model.
+10. **Commit.** Commit `DEFAULT_MODEL`, `PRICES` and any request change, with the before and after figures in the commit message. Update §5 (`CORPUS_LLM_MODEL`) and §6.5 if the request shape changed.
+
+#### A.5.5 Tuning effort instead
+
+Effort is the cheapest lever and needs no migration. To measure it:
+
+```bash
+CORPUS_LLM_EFFORT=low    python -m corpusstudy.generation eval --live --json low.json
+CORPUS_LLM_EFFORT=medium python -m corpusstudy.generation eval --live --json medium.json
+```
+
+Choose the lowest level that keeps the live targets at 100% and doesn't raise the repair or refusal rate. Higher effort earns its cost on hard interpretive and comparison questions more than on simple ones. A per-route effort would be an extension: `Answerer._answer` knows the route when it calls `ask`.
+
+#### A.5.6 Extension: a model per job
+
+`LLM` already takes `model=` and `effort=` in its constructor. To give one job its own model, for example a fixed judge so that live evaluations stay comparable across model changes:
+
+1. Add a setting such as `llm_judge_model: str | None = None` (`CORPUS_LLM_JUDGE_MODEL`) to `Settings`.
+2. Give that job its own instance. For the judge, `evaluation.evaluate_live` currently calls `answerer.llm.judge(...)`; create `judge_llm = LLM(model=settings.llm_judge_model or settings.llm_model)` once and call `judge_llm.judge(...)` instead. This also keeps the judge's tokens out of the answers' usage.
+3. Add its prices to `PRICES`, a test that the setting is honoured, and a row to §5.
+
+Prompt caches are per model, so splitting jobs across models gives up cache sharing between them. Here each job has its own system prompt anyway, so little is lost.
+
+#### A.5.7 Other platforms
+
+The code uses the first-party client (`anthropic.Anthropic`). Amazon Bedrock, Google Vertex AI and Microsoft Foundry need their own client classes, use different model IDs (Bedrock prefixes them), and **don't** accept the server-side `fallbacks` parameter: there, the SDK's client-side refusal fallback middleware replaces it. Moving platform is a separate change from moving model. Plan it with the owner, since it changes where questions are sent.
+
+#### A.5.8 Pitfalls
+
+- **The serving model can differ from the configured one.** After a fallback, `response.model` names the fallback model. Cost is priced with it, and an unpriced fallback model makes `cost_usd` `None` for that answer.
+- **Defaults move between models.** Effort, thinking and the thinking display all have per-model defaults. The code sets effort explicitly, so check thinking.
+- **Output tokens include thinking.** A higher effort uses more of `max_tokens`. Watch for `max_tokens` stop reasons, which show up as repaired or refused answers.
+- **Don't loosen the validator to make a model pass.** If the new model misquotes more, that is a reason not to switch. The citation checks protect invariant 3.
+- **Keep the comparison fair:** the same commit, index and knowledge bundle (drafts on or off), and the same evaluation set, for both runs.
+
+#### A.5.9 Checklist
+
+- [ ] The target model's documentation is read, and its capabilities are confirmed with the Models API
+- [ ] `PRICES` has the model (and any fallback models)
+- [ ] The model is set (`.env` for a trial, `DEFAULT_MODEL` for a project change)
+- [ ] Thinking, fallback, effort levels and `max_tokens` are adapted where needed, with the test assertions updated
+- [ ] `pytest` and the offline evaluation pass; the smoke test passes
+- [ ] Live evaluations are compared before and after: targets at 100%, repair and refusal rates, cost and time
+- [ ] Cache reads are checked, as are the router (if enabled) and `okf propose`
+- [ ] The owner has reviewed sample answers and agreed the change; it is committed with the figures, and §5 and §6.5 are updated
