@@ -41,6 +41,7 @@ from corpusstudy.generation.prompts import (
     user_message,
 )
 from corpusstudy.indexing.analysis import detect_language
+from corpusstudy.okf.maintenance import needs_concept, record_gap
 from corpusstudy.okf.profile import check_concept
 from corpusstudy.retrieval.references import all_references
 from corpusstudy.router import Routing, route
@@ -226,6 +227,7 @@ class Answerer:
         usage.seconds = round(time.monotonic() - started, 2)
         response = response.model_copy(update={"usage": usage})
         _log(routing, response)
+        _record_gap(request.message, routing, response)
         return response
 
     def _answer(self, request: ChatRequest, routing: Routing) -> ChatResponse:
@@ -494,6 +496,20 @@ def _log(routing: Routing | None, response: ChatResponse) -> None:
         "input_tokens": u.input_tokens, "output_tokens": u.output_tokens,
         "cost_usd": u.cost_usd, "seconds": u.seconds,
     }))  # fmt: skip
+
+
+def _record_gap(question: str, routing: Routing | None, response: ChatResponse) -> None:
+    """With CORPUS_GAP_LOG set: keep a topical question no reviewed concept covered."""
+    path = get_settings().gap_log
+    if path is None or routing is None or not needs_concept(routing):
+        return
+    if any(s.source_type == SourceType.KNOWLEDGE and s.trust_tier == "human-reviewed"
+           for s in response.answer.sources):  # fmt: skip
+        return
+    try:
+        record_gap(path, question, routing.language, str(routing.route))
+    except OSError as exc:  # never fail an answer over the log
+        log.warning("gap log not written: %s", exc)
 
 
 def _join(*parts: str) -> str:

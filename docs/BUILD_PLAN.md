@@ -236,9 +236,9 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
   - Book and testament filters; compare, interpretive and cross-reference routes.
   - Public-domain cross-references from the commentaries; sentence-aware chunks; duplicate verses removed from evidence.
   - Optional model-assisted routing.
-  - 17 more concepts and the Parable type.
+  - 16 more concepts and the Parable type.
   - New evaluation categories, including live "cannot verify" correctness, cost and a faithfulness judge.
-- **Gate (you):** review the 17 new concepts with the others (54 in all) and the new evaluation cases.
+- **Gate (you):** review the 16 new concepts with the others (53 in all) and the new evaluation cases.
 - **Status:** built. All offline targets are met on both the tuned and the held-out sets. The live run needs the API key.
 
 ### Phase 8: Docker and running locally
@@ -258,6 +258,29 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 ### Phase 9 (optional): Maintaining the knowledge base
 - **Claude:** when the bot finds a gap (a question with no good concept), it drafts a new OKF concept as `status: draft` on a branch for you to review, never auto-published. It also runs a periodic `okf check` with link and coverage reports, and adds `log.md` entries.
 - **You:** review the proposed concepts like Phase 5.
+- **Built:**
+  - **Report:** `okf maintain` (no API key) covers:
+    - check errors and warnings;
+    - the review queue, ordered by how many questions each draft would answer that no reviewed concept does;
+    - reviewed concepts edited since, stale or soon-stale concepts, and reviewed concepts whose source was regenerated after the review;
+    - broken links, links to deprecated concepts and orphans;
+    - books without a Book concept;
+    - question coverage.
+  - **Coverage rule:** a question is covered by a concept it names, or one retrieved for it by a phrase, all its words or a cited reference; loose keywords and graph neighbours do not count. Lookups, cross-references, pastoral, refused and advice questions need no concept and are left out.
+  - **Gap log:** `CORPUS_GAP_LOG`, off by default. The bot appends topical questions answered without a reviewed concept, the only place questions are written down; `okf maintain` reads it with the evaluation sets.
+  - **Proposals:** `okf propose <Type> <slug> "<Title>" --question ... --passage ...` needs the API key.
+    - The model writes the concept from retrieved KJV, Calvin and Henry evidence only.
+    - Code builds `sources` and the footnote definitions from that evidence, so every anchor is real.
+    - The draft must pass the producer profile, quotations included; it gets one repair round, then it is refused and nothing is written.
+    - It is written as a draft by `corpusstudy/drafter-1`, never verified, and logged.
+  - **Weekly CI report:** `.github/workflows/maintenance.yml` runs Mondays and on demand; the report goes to the job summary and an artifact.
+  - **Docker:** the `okf` tools service gains the index volume for `maintain` and `propose`.
+- **Status:** built and tested offline. On the evaluation sets, 55 of 63 topical questions are covered by drafts only (nothing is reviewed yet) and 8 by no concept:
+  - prayer (two questions), anger, fear, daily Bible reading;
+  - Cain, Judas, Saul;
+  - the Gospel of Thomas, which is outside the canon.
+
+  `propose` runs once the API key is set; the drafts it writes go through the Phase 5 review.
 
 ---
 
@@ -273,9 +296,9 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 | 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted; awaiting your review |
 | 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | 🟡 Built; offline targets met; awaiting your review of the expected answers and a live run |
-| 7b | Spec alignment: answer layout, translations, care rules, logging, new routes, 17 more concepts, evaluation | Claude, **you review** | 🟡 Built; offline targets met; 54 concepts await review |
+| 7b | Spec alignment: answer layout, translations, care rules, logging, new routes, 16 more concepts, evaluation | Claude, **you review** | 🟡 Built; offline targets met; 53 concepts await review |
 | 8 | Docker, local run | Shared | 🟡 Built and tested from a clean checkout; your `docker compose up` on your machine closes it |
-| 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
+| 9 | Knowledge-base maintenance (optional): report, gap log, proposals, weekly CI report | Claude proposes, you review | 🟡 Built and tested offline; proposals need your API key, and each goes through your review |
 
 ## Decisions (Phase 0 additions, settled)
 

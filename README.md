@@ -55,7 +55,8 @@ src/corpusstudy/
   commentary.py    read access to the ingested commentaries (excerpt lookup by id)
   okf/             Google Open Knowledge Format v0.2: documents, tolerant models,
                    bundle conformance, CorpusStudy producer profile, index.md/log.md,
-                   source references; CLI `python -m corpusstudy.okf`
+                   source references, maintenance report and proposals (Phase 9);
+                   CLI `python -m corpusstudy.okf`
   resources/       committed tables: versification, KJV-LSG mapping, source checksums
   ingest/          Phase 2  OSIS / USFM / CSV-JSON / CCEL parsers, alignment, pipeline
   indexing/        Phase 4  analysis (stemming, KJV archaisms), chunking, SQLite FTS5 index
@@ -272,13 +273,41 @@ These changes close the gaps found when comparing the build with the original sy
   - **interpretive** (traditions and interpretations).
   - With `CORPUS_LLM_ROUTER=true`, a model call can refine open questions into these routes (off by default; it costs one extra call).
 - **Knowledge:**
-  - 17 more concepts: Revelation; faith, forgiveness, justice, love, salvation; Jesus Christ, Isaiah the prophet; the Trinity, the Incarnation; the Exile, the Life of Jesus, Pentecost; and the new **Parable** type with the Prodigal Son, the Good Samaritan and the Sower.
+  - 16 more concepts: Revelation; faith, forgiveness, justice, love, salvation; Jesus Christ, Isaiah the prophet; the Trinity, the Incarnation; the Exile, the Life of Jesus, Pentecost; and the new **Parable** type with the Prodigal Son, the Good Samaritan and the Sower.
   - Aliases that named the wrong concept or matched too many questions were removed.
 - **Evaluation:**
   - The tuned set has 83 cases; the new categories are cross-references, comparisons, translations, unsupported questions, advice, refusals and interpretive questions.
   - The held-out set has 22 cases, 6 of them written for the new categories.
   - All offline targets are met. On their first run the six new held-out cases routed 5 of 6: "passages parallel to" was missed, and is now fixed.
   - The live run adds "cannot verify" correctness, cost per question and an optional faithfulness judge (`--judge`).
+
+## Knowledge maintenance (Phase 9)
+
+Claude proposes; you review. Nothing reaches answers until you run `okf verify`.
+
+```bash
+python -m corpusstudy.okf maintain                  # the report (no API key)
+python -m corpusstudy.okf propose Theme prayer "Prayer" \
+    --question "How should I pray?" --passage "Matt 6:5-15"   # a draft for review (API key)
+```
+
+- **The report** covers:
+  - check errors;
+  - the review queue, with the drafts that would answer the most questions first;
+  - concepts edited or gone stale since review;
+  - reviewed concepts whose source was regenerated;
+  - broken links, links to deprecated concepts and orphans;
+  - books without a Book concept;
+  - the questions no concept covers ("gaps").
+
+  Questions come from the evaluation sets and, if you turn it on, the gap log.
+- **The gap log** (`CORPUS_GAP_LOG=data/gaps.jsonl`, off by default) keeps topical questions the bot answered without a reviewed concept. It is the only place questions are written down; delete the file to forget them.
+- **A proposal:**
+  - The model writes the concept from retrieved KJV, Calvin and Henry passages only.
+  - The code attaches the sources and footnotes, so every anchor is real.
+  - The draft must pass `okf check`, quotations included, after at most one repair; otherwise nothing is written.
+  - It is saved as a draft, logged, and reviewed like any other concept, in a pull request.
+- **Every Monday** a CI workflow publishes the report in its job summary (`.github/workflows/maintenance.yml`; it can also be run by hand).
 
 ## Phases
 
@@ -291,12 +320,12 @@ The full plan, including how the knowledge layer follows Google's Open Knowledge
 | 2 | Corpus: KJV, LSG 1910, Calvin, Henry | Claude (+ your files) | ✅ Done, published as OKF source references (TSK skipped) |
 | 3 | OKF bundle foundation: loader, validator, lifecycle (new, touch, verify, deprecate), graph, index/log, CLI, CI | Claude | ✅ Done |
 | 4 | Chunking, FTS5 keyword search (vectors later), OKF-aware retrieval, evaluation | Claude | ✅ Done |
-| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted (54 with Phase 7b); awaiting your review |
+| 5 | Knowledge concepts (about 36) in OKF | Claude drafts, **you review** | 🟡 37 concepts drafted (53 with Phase 7b); awaiting your review |
 | 6 | Router, generation, citation and provenance validator | Claude | 🟡 Built and tested offline; live smoke test needs your API key |
 | 7 | API, chat page, evaluation set | Claude, **you validate** | 🟡 Built; offline targets met; awaiting your review of the expected answers and a live run |
-| 7b | Spec alignment: answer layout, translations, care rules, logging, new routes, 17 more concepts, evaluation | Claude, **you review** | 🟡 Built; offline targets met; 54 concepts await review |
+| 7b | Spec alignment: answer layout, translations, care rules, logging, new routes, 16 more concepts, evaluation | Claude, **you review** | 🟡 Built; offline targets met; 53 concepts await review |
 | 8 | Docker, local run | Shared | 🟡 Built and tested from a clean checkout; your `docker compose up` on your machine closes it |
-| 9 | Knowledge-base maintenance (optional) | Claude proposes, you review | — |
+| 9 | Knowledge-base maintenance (optional): report, gap log, proposals, weekly CI report | Claude proposes, you review | 🟡 Built and tested offline; proposals need your API key, and each goes through your review |
 
 ## License
 

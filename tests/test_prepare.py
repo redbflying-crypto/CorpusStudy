@@ -109,3 +109,4 @@ def test_docker_files_keep_secrets_out_and_the_page_local():
     assert Path(REPO_ROOT / "imports" / "README.md").exists()
     tools = compose["services"]["okf"]  # review commands: knowledge mounted read-write
     assert tools["profiles"] == ["tools"] and "./knowledge:/app/knowledge" in tools["volumes"]
+    assert "corpus-index:/app/indexes" in tools["volumes"]  # maintain and propose search it

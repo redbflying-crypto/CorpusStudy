@@ -114,6 +114,40 @@ docker compose run --rm okf deprecate themes/old --reason "merged into themes/ho
 `docs/KNOWLEDGE_FORMAT.md` describes the format, the checks and the naming rules for
 aliases. Commit, push, then `docker compose restart`.
 
+## Maintaining the knowledge base
+
+Claude proposes, you review: nothing reaches answers until you approve it with `okf verify`.
+
+1. **The report** (no API key):
+   ```bash
+   docker compose run --rm okf maintain                  # printed
+   docker compose run --rm -T okf maintain > maintenance-report.md   # saved here
+   ```
+   The report lists:
+   - check errors;
+   - the review queue, with the drafts that would answer the most questions first;
+   - concepts edited or gone stale since your review;
+   - links to fix;
+   - books without a Book concept;
+   - questions no concept covers ("gaps").
+
+   GitHub runs the same report every Monday (Actions, "Knowledge maintenance", job summary).
+2. **Questions from your own use (optional).** Add `CORPUS_GAP_LOG=/app/data/gaps.jsonl` to
+   `.env` and run `docker compose up -d`. The bot then keeps the topical questions it answered
+   without a reviewed concept, and the report includes them. This is the only place your
+   questions are written down. To forget them:
+   `docker compose exec corpusstudy rm /app/data/gaps.jsonl`.
+3. **A proposal for a gap** (needs the API key; one or two model calls, cost printed):
+   ```bash
+   git switch -c knowledge/prayer
+   docker compose run --rm okf propose Theme prayer "Prayer" \
+       --question "How should I pray?" --passage "Matt 6:5-15"
+   docker compose run --rm okf check
+   ```
+   - The draft is written from KJV, Calvin and Henry passages only, with the sources attached by the code.
+   - It must pass the checks, quotations included, or nothing is written.
+   - Then commit, push and open a pull request; review it like any other concept (above).
+
 ## Checks
 
 ```bash
@@ -121,6 +155,7 @@ docker compose exec corpusstudy python -m corpusstudy.generation smoke      # tw
 docker compose exec corpusstudy python -m corpusstudy.generation eval       # offline evaluation
 docker compose exec corpusstudy python -m corpusstudy.generation eval --live --judge   # live, with cost
 docker compose run --rm okf check
+docker compose run --rm okf maintain                # the maintenance report
 ```
 
 ## Troubleshooting

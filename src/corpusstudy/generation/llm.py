@@ -5,7 +5,8 @@ One request per answer (plus at most one repair). Structured output fixes the re
 declines on safety grounds is retried server-side on Anthropic's recommended fallback model
 (`fallbacks: "default"`). Thinking is adaptive (always on for this model); `effort` sets
 its depth. Every call's token usage is added to `usage`, with a cost estimate from PRICES.
-`classify` is the optional model-assisted routing step (CORPUS_LLM_ROUTER).
+`classify` is the optional model-assisted routing step (CORPUS_LLM_ROUTER); `draft` writes a
+concept proposal for review (`okf propose`).
 """
 
 from __future__ import annotations
@@ -88,6 +89,10 @@ class LLM:
         content = f"{evidence_block(evidence)}\n<answer>\n{answer}\n</answer>"
         messages = [{"role": "user", "content": content}]
         return self._call(JUDGE, messages, JUDGE_SCHEMA, "medium", 4096).data
+
+    def draft(self, system: str, messages: list[dict[str, Any]], schema: dict[str, Any]) -> Reply:
+        """Knowledge maintenance (Phase 9): a structured draft under its own instructions."""
+        return self._call(system, messages, schema, self.effort, self.max_tokens)
 
     def _call(self, system: str, messages: list[dict[str, Any]], schema: dict[str, Any],
               effort: str, max_tokens: int) -> Reply:  # fmt: skip

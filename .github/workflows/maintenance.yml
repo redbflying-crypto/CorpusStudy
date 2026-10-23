@@ -1,0 +1,44 @@
+name: Knowledge maintenance
+
+# Phase 9: a weekly report on the knowledge bundle, with no API key: `okf check`, the review
+# queue (drafts that answer the most questions first), changes since review, links, coverage
+# and the evaluation questions no concept covers. It reads the repository and changes
+# nothing; proposals for the gaps are drafted separately and reviewed in a pull request.
+# Scheduled runs use the default branch; "Run workflow" runs it on any branch.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e .
+      - name: Build the Bible corpus and the search index
+        run: |
+          python -m corpusstudy.ingest
+          python -m corpusstudy.indexing
+      - name: Report
+        run: python -m corpusstudy.okf maintain --out maintenance-report.md
+      - name: Job summary
+        if: always()
+        run: |
+          [ -f maintenance-report.md ] && cat maintenance-report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: maintenance-report
+          path: maintenance-report.md
+          if-no-files-found: ignore

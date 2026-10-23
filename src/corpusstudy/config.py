@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     knowledge_dir: Path = REPO_ROOT / "knowledge"
     index_dir: Path = REPO_ROOT / "indexes"
     imports_dir: Path = REPO_ROOT / "imports"  # hand-downloaded commentary files (prepare)
+    # Phase 9: topical questions answered without a reviewed concept, for `okf maintain`.
+    # Off unless set: it is the only place questions are written down.
+    gap_log: Path | None = None
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
@@ -165,6 +168,14 @@ class Settings(BaseSettings):
     @classmethod
     def _resolve_path(cls, v: Path) -> Path:
         return v if v.is_absolute() else REPO_ROOT / v
+
+    @field_validator("gap_log", mode="before")
+    @classmethod
+    def _resolve_gap_log(cls, v: object) -> Path | None:
+        if v is None or not str(v).strip():  # CORPUS_GAP_LOG= (empty) keeps it off
+            return None
+        path = Path(str(v).strip())
+        return path if path.is_absolute() else REPO_ROOT / path
 
     def translation_for(self, language: Language) -> Translation:
         return self.translations[language]

@@ -28,3 +28,4 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+maintenance-report.md

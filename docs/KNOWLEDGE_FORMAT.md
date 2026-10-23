@@ -88,7 +88,7 @@ Each claim is credited with a Markdown footnote whose label is a `sources` id (O
 
 ### Review workflow
 
-1. **Draft.** Claude drafts a concept on a branch with `okf new`, writes it, and then runs `okf check` until the producer profile passes. The concept stays `status: draft`, `generated` by `corpusstudy/drafter-1`.
+1. **Draft.** Claude drafts a concept on a branch with `okf new`, writes it, and then runs `okf check` until the producer profile passes. The concept stays `status: draft`, `generated` by `corpusstudy/drafter-1`. For a gap found by `okf maintain`, `okf propose` does the same through the API: the model writes the text from retrieved sources, the code attaches `sources` and footnotes, and a draft that fails the profile after one repair is not written.
 2. **Pull request.** Claude opens a pull request. CI runs the tests and `okf check`, and the index marks the concept "(draft)".
 3. **Your review.** You read the concept in the pull request. When you approve it, `okf verify <concept>` runs as you (`human:dhnguyen`). The command refuses any concept that would fail the profile once stamped, and refuses any actor that isn't `human:`. It appends `verified: { by: human:dhnguyen, at: ... }`, sets `status: stable` and logs a **Review** entry. Then the pull request is merged.
 4. **Later edits.** Any later edit runs `okf touch`, which sends the concept back to `draft` until it is reviewed again. Its earlier `verified` entries stay as history. A concept that is still `stable` but has a `generated.at` newer than its last review fails the profile.

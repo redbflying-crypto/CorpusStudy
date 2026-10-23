@@ -27,8 +27,10 @@ services:
       - ./imports:/app/imports:ro    # drop calcom.doc and mhcc.txt here
     restart: unless-stopped
 
-  # The knowledge-bundle commands (review, new concepts): knowledge/ mounted read-write.
+  # The knowledge-bundle commands (review, maintenance, proposals): knowledge/ mounted
+  # read-write.
   #   docker compose run --rm okf verify doctrines/election
+  #   docker compose run --rm okf maintain
   okf:
     image: corpusstudy:local
     profiles: [tools]
@@ -39,9 +41,11 @@ services:
         required: false
     environment:
       CORPUS_DATA_DIR: /app/data
+      CORPUS_INDEX_DIR: /app/indexes
       CORPUS_KNOWLEDGE_DIR: /app/knowledge
     volumes:
       - corpus-data:/app/data
+      - corpus-index:/app/indexes    # read by `maintain` (coverage) and `propose`
       - ./knowledge:/app/knowledge
 
 volumes:
