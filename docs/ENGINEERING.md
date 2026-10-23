@@ -18,7 +18,7 @@ CorpusStudy is a personal Bible-study assistant. It runs for one person, on thei
 
 It also draws on a curated knowledge bundle that a human reviewer approves. Answers are framed from the Reformed (Protestant, Calvinist) position, and other views are labelled.
 
-Appendix A covers extending the application: A.1 explains how to add new sources, A.2 how to add new knowledge concepts, A.3 how to add new routes, A.4 how to tune retrieval, and A.5 how to change the model.
+Appendix A covers extending the application: A.1 explains how to add new sources, A.2 how to add new knowledge concepts, A.3 how to add new routes, A.4 how to tune retrieval, A.5 how to change the model, and A.6 how to deploy updates.
 
 ---
 
@@ -426,7 +426,7 @@ Conventions:
 | `ci.yml`, job `docker` | push, pull request | Build the image, `docker compose up`, wait until healthy, query a lookup through the API |
 | `.github/workflows/maintenance.yml` | Mondays 06:17 UTC, manual | The maintenance report in the job summary and as an artifact |
 
-There is no deployment pipeline: the owner runs `docker compose up -d --build` on their own computer. Changes reach `main` through pull requests. The knowledge review happens in the same pull requests: the owner approves a concept, and `okf verify` is run as them.
+There is no deployment pipeline: the owner runs `docker compose up -d --build` on their own computer (release procedure, update commands and rollback in Appendix A.6). Changes reach `main` through pull requests. The knowledge review happens in the same pull requests: the owner approves a concept, and `okf verify` is run as them.
 
 ---
 
@@ -1361,3 +1361,131 @@ The code uses the first-party client (`anthropic.Anthropic`). Amazon Bedrock, Go
 - [ ] Live evaluations are compared before and after: targets at 100%, repair and refusal rates, cost and time
 - [ ] Cache reads are checked, as are the router (if enabled) and `okf propose`
 - [ ] The owner has reviewed sample answers and agreed the change; it is committed with the figures, and §5 and §6.5 are updated
+
+### A.6 How to deploy updates
+
+#### A.6.1 What "deploying" means here
+
+CorpusStudy has no server and no deployment pipeline. It is **one Docker container on the owner's computer**, built from their clone of the repository. Deploying an update means:
+
+1. the change is merged into `main` (CI green);
+2. the owner pulls it;
+3. the owner rebuilds and restarts the container, which brings its data up to date on start (`prepare`).
+
+Your job as the engineer is to make step 3 safe: say in the release notes exactly what the owner must run, and make sure the start-up preparation does the rest.
+
+| What lives where | Survives `git pull` | Survives `docker compose up -d --build` | Survives `docker compose down -v` |
+|---|---|---|---|
+| Code, `compose.yaml`, `Dockerfile` (git) | updated | rebuilt into the image | yes |
+| `knowledge/` (git, mounted into the container) | updated | yes; mounted, not copied | yes |
+| `.env` (git-ignored) | yes, untouched | yes | yes |
+| `imports/` (git-ignored) | yes | yes | yes |
+| Volume `corpus-data`: downloaded Bibles, imported commentaries, the processed corpus, the gap log | n/a | yes | **deleted** |
+| Volume `corpus-index`: the search index | n/a | yes | **deleted** |
+
+#### A.6.2 What the start-up does by itself
+
+Every start runs `prepare()` before the page is served. It does three things:
+
+- It **imports** commentary files in `imports/` that are new or changed.
+- It **builds the corpus** when a processed output is **missing**, or a commentary was just imported. With the raw files present this takes about 8 seconds here; the first download takes a few minutes.
+- It **rebuilds the index** when it is missing or stale (about 15 seconds here). "Stale" means the corpus or any knowledge file changed, or the index was built with another `store.SCHEMA_VERSION`.
+
+It does **not** rebuild the corpus when the ingestion code or a pinned Bible source changed but the old outputs are still there. Those changes need a manual step (A.6.3).
+
+#### A.6.3 Kinds of update and what the owner runs
+
+| The change touches… | Owner runs | Notes |
+|---|---|---|
+| Knowledge only (`knowledge/`) | `git pull` then `docker compose restart` | The mounted files change; the index is stale, so it is rebuilt on start |
+| Code only (`src/`, prompts, the page, router, retrieval weights) | `git pull` then `docker compose up -d --build` | New image; data and index kept |
+| Chunking, text analysis or the index tables | the same | Bump `store.SCHEMA_VERSION` in the change, so the index is rebuilt on start |
+| Dependencies (`pyproject.toml`) | the same | `--build` reinstalls them |
+| `compose.yaml` (ports, volumes, environment) | `git pull` then `docker compose up -d --build` | `up` recreates the container with the new definition |
+| Settings (`.env`) | edit `.env`, then `docker compose up -d` | A plain `restart` doesn't re-read `.env` |
+| A new or updated commentary file | copy it into `imports/`, then `docker compose restart` | Imported, corpus and index rebuilt on start |
+| **Ingestion code** (parsers, repairs, alignment) | `git pull`, `docker compose up -d --build`, then **rebuild the corpus**: `docker compose exec corpusstudy rm -rf /app/data/processed` and `docker compose restart` | The raw files stay, so nothing is downloaded |
+| **A pinned Bible source** (new commit and checksums) | as above, but delete the raw files too: `docker compose exec corpusstudy rm -rf /app/data/raw/kjv /app/data/processed` (the source's folder) | Otherwise the old file fails its new checksum |
+| Everything, from scratch | `docker compose down -v` then `docker compose up -d --build` | A few minutes. Commentaries are re-imported from `imports/`; **the gap log is deleted with the volume** |
+
+Never tell the owner to run `python -m corpusstudy.ingest` in the app container: it also tries to rewrite committed files and the source references in `knowledge/`, which is mounted read-only there. Those are developer steps (§6.1).
+
+#### A.6.4 Release procedure (engineer)
+
+1. **Merge through a pull request** into `main`, with CI green: the `checks` and `docker` jobs.
+2. **Check what the change needs at start-up,** using A.6.3:
+   - Did chunking or analysis change? Then bump `SCHEMA_VERSION`.
+   - Did ingestion or a pinned source change? Then the owner needs the manual corpus rebuild.
+   - New settings? Add them to `.env.example`, with safe defaults in `config.py`, so an existing `.env` keeps working.
+   - New files in `imports/`?
+3. **Tag the release** so it can be named and rolled back:
+   ```bash
+   git switch main && git pull
+   git tag -a v0.2.0 -m "CorpusStudy 0.2.0" && git push origin v0.2.0
+   ```
+   Keep `version` in `pyproject.toml` and `corpusstudy.__version__` equal to the tag. Use semantic versioning:
+   - **major**: something the owner must decide or migrate (a model or source change, a removed setting);
+   - **minor**: new features, concepts or routes;
+   - **patch**: fixes.
+
+   There are no tags yet. The first release, after PR #1 is merged, would be `v0.1.0`.
+4. **Write release notes** (the GitHub release text, or `CHANGELOG.md` if the project adopts one), opening with what the owner must do:
+   ```markdown
+   ## 0.2.0
+   **To update:** git pull && docker compose up -d --build   (index rebuilt on start, ~15 s)
+   **Settings:** new CORPUS_X (optional, default off)
+   **Knowledge:** 3 new draft concepts await review
+   Changes: …
+   ```
+5. **Weekly maintenance report.** The workflow runs on `main` only, so a change to it takes effect after the merge.
+
+#### A.6.5 Updating (owner)
+
+```bash
+cd CorpusStudy
+git pull                                 # or: git fetch --tags && git checkout v0.2.0
+docker tag corpusstudy:local corpusstudy:previous   # keep the running image, for a quick rollback
+docker compose up -d --build             # or the command the release notes give
+docker compose logs -f                   # watch the start: "corpus and index are up to date" or the rebuild lines
+```
+
+Then check:
+- `docker compose ps` shows `healthy`.
+- <http://127.0.0.1:8000/health> shows `"index": "fresh"` and `"api_key": true`.
+- A lookup ("John 3:16") and one generated answer work on the page.
+- With the key, `docker compose exec corpusstudy python -m corpusstudy.generation smoke` passes (about two answers' cost).
+
+Downtime is the restart plus any rebuild: seconds for code or knowledge, about 15 seconds for a re-index, about a minute for a corpus rebuild. The health check reports `starting` until the page is up.
+
+Knowledge reviewed on the owner's machine (`docker compose run --rm okf verify …`) changes files in their clone. Commit and push them **before** the next `git pull`: uncommitted changes to files the update also touches make the pull stop, and committed ones are merged with the update.
+
+#### A.6.6 Rolling back
+
+- **Code:** return to the previous release and rebuild:
+  ```bash
+  git checkout v0.1.0                 # the previous tag
+  docker compose up -d --build        # or, without rebuilding: docker tag corpusstudy:previous corpusstudy:local && docker compose up -d
+  ```
+  - The index rebuilds itself if the schema version differs, in either direction.
+  - If the newer release changed the processed corpus format, rebuild the corpus as in A.6.3.
+- **Knowledge:** checking out an older tag also shows the older `knowledge/`, but nothing is lost: reviews committed on `main` are still there when you switch back. To roll back only the code while keeping current knowledge, revert the bad change on `main` with `git revert`, through a pull request, and update normally.
+- **Settings:** restore the previous `.env` line and run `docker compose up -d`.
+- Return to `main` (`git switch main`) once a fixed release is out.
+
+#### A.6.7 Pitfalls
+
+- **Forgetting `--build`.** `docker compose up -d` without `--build` keeps the old image. The code didn't change, but the mounted knowledge did. Release notes should always give the full command.
+- **Changing the index without bumping the schema.** The owner's index stays as it was until something else makes it stale, so search behaves like the old code.
+- **Changing ingestion or a pinned source silently.** Without the manual corpus rebuild, the owner keeps the old corpus. Say so in the release notes.
+- **Breaking `.env` compatibility.** Settings ignore unknown variables (`extra="ignore"`), so a renamed or removed setting silently drops the owner's choice; only an invalid *value* stops the start. Keep the old name working for a release (a validation alias), or say so in the notes.
+- **`down -v` deletes the gap log** along with the corpus. Mention it before recommending it if the owner has the gap log on.
+- **The page is bound to `127.0.0.1`.** No release may change that binding (invariant 8). CI checks it in `tests/test_prepare.py`.
+
+#### A.6.8 Checklist
+
+- [ ] CI is green on the merged commit, both jobs
+- [ ] `SCHEMA_VERSION` is bumped for chunking, analysis or table changes; the manual corpus rebuild is noted for ingestion or source changes
+- [ ] New settings are in `.env.example`, with defaults that keep existing `.env` files working
+- [ ] The version is bumped and tagged, with release notes that open with the owner's commands
+- [ ] The owner has updated: healthy, index fresh, a lookup and an answer work, and the smoke test passes with the key
+- [ ] The previous tag and image are known, for a rollback
