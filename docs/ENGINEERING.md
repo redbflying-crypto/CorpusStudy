@@ -18,6 +18,8 @@ CorpusStudy is a personal Bible-study assistant. It runs for one person, on thei
 
 It also draws on a curated knowledge bundle that a human reviewer approves. Answers are framed from the Reformed (Protestant, Calvinist) position, and other views are labelled.
 
+Appendix A covers extending the application; A.1 explains how to add new sources.
+
 ---
 
 ## 1. Ground rules (invariants)
@@ -446,6 +448,8 @@ There is no deployment pipeline: the owner runs `docker compose up -d --build` o
 4. Run `okf check`: quotations are re-verified against the new text.
 5. Commit everything together.
 
+**Add a new source** (commentary, translation or cross-references): see Appendix A.1.
+
 **Re-import a commentary.**
 1. Run `python -m corpusstudy.ingest --import <source> <file>`.
 2. Run `okf check`, which catches excerpt ids or texts that changed under existing citations.
@@ -457,7 +461,7 @@ There is no deployment pipeline: the owner runs `docker compose up -d --build` o
 - references, quotations and the validator follow the answer language's translation;
 - you need a parser, a pinned source, versification tables and the mapping to KJV, analysis rules for the language (stemmer, stopwords), concept `title_<lang>` and aliases, fixed texts in that language, and evaluation cases.
 
-Plan it as a phase.
+Plan it as a phase; Appendix A.1.4 lists every step.
 
 **Add embeddings (vectors).** `CORPUS_EMBEDDINGS` is reserved but not implemented. Add a `vector` list per kind to `Search.search`, give it a weight, store the vectors alongside the index (and bump `SCHEMA_VERSION`), and tune on the `paraphrase` category, which keyword search handles worst. Keep the gates green.
 
@@ -514,3 +518,211 @@ Plan it as a phase.
 | An answer is shown as "not verified: passages shown" | The response `warnings` (and the log line's count) say which check failed twice |
 | Docker build fails at `pip install` behind a proxy | Build with the proxy's CA: `docker build --secret id=extra_ca,src=ca.crt -t corpusstudy:local .` (see the runbook) |
 | Tests pass locally but fail in CI | CI is Bible-only and runs Python 3.12; run with commentaries absent, or check the `needs_*` skip markers |
+
+---
+
+## Appendix A. Extending the application
+
+### A.1 How to add new sources
+
+A *source* is any text the bot may quote or cite: a Bible translation, a commentary or a similar reference work, or a cross-reference dataset. Every source enters through the same gates. The text is pinned and checksummed, parsed into the corpus, described by an OKF `Reference` concept in `knowledge/references/sources/`, indexed, and then cited by concepts and answers through an anchor that `okf check` and the citation validator can resolve. Skipping a gate breaks one of the invariants in §1.
+
+#### A.1.1 Before you start: is the source eligible?
+
+Go through this list with the owner before writing any code. Adding a source is an owner's decision, recorded with the Phase 0 decisions in `docs/BUILD_PLAN.md`.
+
+- [ ] **Public domain, for this edition.** An old work can sit in a copyrighted modern translation, revision or edition (Segond 21, for example, is not the Louis Segond 1910).
+  - Check the edition you will actually ingest.
+  - Record its licence; it ends up in the source's `Reference` concept.
+  - A licence that limits redistribution of the *file*, but not the text (CCEL's PDF of Henry is an example), is acceptable for a personal installation. Say so in `license`.
+- [ ] **A stable, pinnable copy.**
+  - Best: a file in a git repository at a fixed commit, downloaded automatically.
+  - Otherwise: a file the owner downloads by hand once and imports; its checksum is then locked.
+- [ ] **Structure you can key to passages.** Commentary excerpts must map to OSIS passages (KJV numbering), or at least to a topic. Bible text needs book, chapter and verse.
+- [ ] **Fit with the stance.** Sources are evidence the model quotes, and the Reformed reading is presented as primary. A non-Reformed source is possible, but the prompts must then label it, so decide that with the owner.
+- [ ] **Size.** Very large works make the index, and the first Docker start, slower. Measure the build time and the index size.
+
+#### A.1.2 Which kind of source?
+
+| Kind | Examples | Work involved | Section |
+|---|---|---|---|
+| Commentary or reference work, keyed to passages or arranged by topic | Matthew Henry's full Commentary, the Geneva Bible notes, Calvin's Institutes (by topic, like the LCC selections), a catechism with proof texts | Moderate: a parser and some registrations | A.1.3 |
+| Bible text **replacing** the translation of an existing language | another public-domain French edition | Moderate to large | A.1.4 |
+| A **second** translation in a language, or a **new language** | ASV beside the KJV; German Luther 1912 | Large: a design change, plan it as a phase | A.1.4 |
+| Cross-reference dataset | Treasury of Scripture Knowledge (skipped by decision) | Small to moderate | A.1.5 |
+
+#### A.1.3 Adding a commentary or reference work
+
+The two existing commentaries are the worked examples. Calvin (`calvin-lcc`) is a CCEL ThML file of excerpts arranged by subject. Henry (`henry-concise`) is CCEL text converted from a PDF, chapter by chapter. Work through the steps in order; each names the file to change.
+
+1. **Allow the work** in `config.py`: add a key and a full bibliographic description to `ALLOWED_COMMENTARIES`, such as `"henry-full": "Matthew Henry, Commentary on the Whole Bible (1706-1721)"`. The key is the *work*; one work may have several source files or editions.
+
+2. **Parse it into excerpts.** A parser returns `list[ingest.raw.Excerpt]`, and each excerpt has:
+   - `id`: the **local id**, unique within the source and **stable across re-imports**, because concepts cite it as an anchor. Use letters, digits, dots and hyphens only. Prefer passage-based ids (`Rom.3.21-Rom.3.26`); for subject-arranged works, use document-position ids (`vi-p90`).
+   - `refs`: the OSIS passages the excerpt comments on, in **KJV numbering**. Leave it empty for a purely topical excerpt; it is then reachable by words only.
+   - `mentions`: other passages cited in the comment. They become cross-references.
+   - `topic`: headings, which are shown in labels.
+   - `paragraphs`: the author's text only. Drop editors' introductions, footnotes, page numbers and indexes, as `thml.py` and `ccel_text.py` do.
+
+   Reuse `parse_ccel_thml` (format `ccel-thml`) or `parse_ccel_text` (format `ccel-text`) if the file is a CCEL export. Otherwise write `ingest/<format>.py`, and add a branch for the new `format` in `ingest/commentary.process`.
+
+3. **Register the source** in `ingest/commentary.COMMENTARY_SOURCES`:
+
+   ```python
+   "henry-full": CommentarySource(
+       id="henry-full",                 # data/raw/<id>/, <id>.jsonl, references/sources/<id>.md
+       work="henry",                    # a key of ALLOWED_COMMENTARIES (asserted at import)
+       format="ccel-thml",              # the parser branch in process()
+       filename="mhc.doc",              # the file name in imports/ and data/raw/<id>/
+       title="Matthew Henry's Commentary on the Whole Bible",
+       description="One sentence for the Reference concept.",
+       edition="Which edition, translator, year",
+       license="Public domain (…)",
+       origin="https://… (how to download it by hand)",
+       corrections={},                  # wrong references in the source, checked by hand
+       abbreviations={},                # book abbreviations this source uses differently
+   ),
+   ```
+
+   `prepare` (Docker start-up) and `okf references` pick up the new entry automatically. So do the anchor check in the producer profile (`commentary(source)`) and the quotation check.
+
+4. **Give the work its names.** These lists are written out by hand:
+
+   | File | What to add |
+   |---|---|
+   | `generation/evidence.WORKS` | The label shown in answers' Sources, such as `"Matthew Henry, Commentary"` |
+   | `retrieval/search._WORKS` | A folded pattern for the author's name, so "What does Henry say…" filters to the work. Only needed for a new author; one pattern covers all of an author's works |
+   | `okf/propose._SHORT` | Optional: a short prefix for footnote ids in proposals. Without an entry, the source id is used (`henry-full-rom3-21`); a prefix must not collide with another source's |
+   | `okf/references._example_anchor` | One real anchor, shown in the Reference concept |
+   | `generation/prompts.SYSTEM`, `ROUTE_NOTES` | The sentences that name the commentaries the evidence comes from |
+   | `okf/propose.DRAFT_SYSTEM` | The sentence that names the commentators to cite |
+   | `api/static/index.html` | The subtitle listing the sources |
+   | `imports/README.md` | The file name and where to download it |
+
+5. **Import and build.**
+
+   ```bash
+   python -m corpusstudy.ingest --import henry-full ~/Downloads/mhc.doc   # copies, locks the checksum, builds
+   python -m corpusstudy.retrieval show henry-full:Rom.3.21-Rom.3.26        # read a few excerpts in full
+   python -m corpusstudy.indexing                                           # rebuild the index
+   ```
+
+   Read the ingest report:
+   - `excerpts` and `with_refs` (how many are keyed to a passage);
+   - `corrected` (your `corrections` applied);
+   - `dropped` (references that don't exist in the KJV).
+
+   For each dropped reference, check the printed text. When the source is wrong, add a `corrections` entry with a comment saying what the text prints; then re-run until the drops are understood. The build also writes `knowledge/references/sources/henry-full.md` and a log entry.
+
+6. **Tests.**
+   - A parser unit test with a small inline fixture (`tests/test_ccel_text.py` is the pattern) that covers ids, refs, mentions and the text cleanup.
+   - A test on the real file, skipped when it isn't imported (`@pytest.mark.skipif(not PROCESSED.exists(), …)` in `tests/test_commentary.py`). It checks the excerpt count, a few known excerpts and that every ref is valid.
+   - Retrieval cases of kind `commentary` in `eval/retrieval.yaml` (and a couple in the held-out set) that name the work. Run `python -m corpusstudy.retrieval eval` and keep the gates in §6.3. More commentary dilutes the ranking, so check that the `quote_*` and `ref_*` categories stay at 100%.
+   - `python -m corpusstudy.generation eval` must stay at 100%.
+   - `python -m corpusstudy.okf check` must report 0 errors. Existing concepts are unaffected unless you changed an existing source.
+
+7. **Commit together:**
+   - the code;
+   - `resources/sources.lock.json` (the new checksum);
+   - `knowledge/references/sources/<id>.md`, `knowledge/references/sources/index.md` and `knowledge/log.md`;
+   - the tests and evaluation cases;
+   - the docs: the README source list, the provenance table in `KNOWLEDGE_FORMAT.md`, the Decisions in `BUILD_PLAN.md`, and §3 and §11 here.
+
+   The raw file stays out of git (`data/` and `imports/` are ignored), so CI runs without it: the new tests must skip cleanly there.
+
+8. **Tell the owner** to copy the file into `imports/` and restart the container. Start-up imports it, rebuilds the corpus and re-indexes. Concepts can then cite `/references/sources/<id>.md#<local id>`, and `okf propose` will draw on it.
+
+#### A.1.4 Adding or replacing a Bible translation
+
+The code assumes **exactly one translation per language**:
+- `Settings.translations` maps each language to one translation;
+- the validator checks references and quotations against the answer language's translation;
+- commentary and knowledge are keyed in KJV numbering, with a mapping to the other translation.
+
+Replacing a language's translation stays within that design. Adding a second translation to a language, or adding a new language, breaks it, so plan that as a phase.
+
+Steps (replacement or addition):
+
+1. **Declare it** in `config.py`:
+   - add a value to `Translation`;
+   - add its language to `TRANSLATION_LANGUAGE`;
+   - add its full name to `TRANSLATION_NAMES`;
+   - set it in the `Settings.translations` default.
+
+   `PUBLIC_DOMAIN_TRANSLATIONS` is every `Translation`, so declaring one *is* the public-domain claim. Do it only after A.1.1.
+
+2. **Pin and parse it** in `ingest/sources.SOURCES`:
+   - a `Source` with a module-level commit constant;
+   - one `SourceFile` per file, with a URL at that commit;
+   - `format`, `license`, `homepage`, `description`.
+
+   `parse_source` handles `osis` (`osis.py`) and `usfm` (`usfm.py`). For CSV or JSON, `tabular.py` exists but isn't wired in: add a branch. The parser must yield `RawVerse`s in the translation's **own** numbering, with psalm superscriptions as verse 0 where the text has them; drop notes, headings and cross-references.
+
+3. **Ingest and validate.** Run `python -m corpusstudy.ingest -t <TR>`. The first run records checksums in the lock. The report lists:
+   - the verse count;
+   - superscriptions;
+   - repairs (`pipeline.repair_numbering` fixes repeated or missing numbers);
+   - validation errors against the canon (`canon.py` chapter counts).
+
+   Fix the parser, not the data, until there are no errors.
+
+4. **Versification.**
+   - The pipeline writes `resources/versification/<TR>.json` (verse counts).
+   - The mapping to KJV is the hard part: `pipeline.run` aligns only KJV with LSG 1910 (`align_translations` writes `KJV-LSG1910.json`), and `versification.map_passage` reads that file.
+   - For a new translation, generalise both: align `<TR>` with the KJV and load `KJV-<TR>.json`.
+   - Check the mapping on the known trouble spots: psalm titles, Joel 2–3, Malachi 3–4, Job 38–41 and Mark 9:50.
+   - Add cases to `tests/test_versification.py`.
+
+5. **Update the per-translation tables:**
+
+   | File | Entry |
+   |---|---|
+   | `okf/profile._BIBLE_SOURCES`, `okf/quotes._BIBLES` | `"<source id>": Translation.<TR>` (anchors and quotations in concepts) |
+   | `okf/references._BIBLE_TAGS`, `_LANGUAGE` | The tags and language name for its Reference concept |
+   | `generation/answer.TAGS` | The short tag after every reference, such as `"LSG"` |
+   | `router/route._LOADED` | How people name it; remove it from `_OTHER_ABBREV` and `_OTHER_NAMES` if it is listed there as "not loaded" |
+   | `generation/evaluation.py`, `retrieval/evaluation.py` | They pick the translation by language (`KJV if en else LSG1910`); use `settings.translation_for(language)` instead |
+   | `okf/propose._source` | Proposals draw on KJV Scripture only; widen this only for a new concept language |
+   | `api/static/index.html` | The subtitle |
+
+6. **For a new language** (on top of the above):
+   - `config.Language`;
+   - `indexing/analysis.py`: stemmer, stopwords, elision rules, `detect_language`;
+   - the router's language-specific patterns (pastoral, advice and refusal words);
+   - every fixed text: `answer.SAFETY` (with crisis lines for that language's country), `answer._TEXT`, `prompts.CANNOT_VERIFY` and the answer headings;
+   - concept names (`title_<lang>`, `aliases_<lang>` in the profile and in `search._concept_names`);
+   - the chat page strings;
+   - evaluation cases in that language for every category.
+
+   The owner reviews the crisis lines and fixed texts.
+
+7. **Rebuild and test:**
+   - Run `python -m corpusstudy.indexing`. The inputs changed, so Docker rebuilds the index on its own.
+   - Add retrieval cases `quote_<lang>` and `ref_<lang>`, which are gated at 100% recall@5.
+   - Add lookup cases in `eval/answers.yaml`, including references numbered differently from the KJV.
+   - Run the full suite, both evaluations and `okf check`.
+
+   CI downloads the new text on every run, and its drift check fails until you commit the generated tables and Reference concept.
+
+8. **Commit together:** the code, the lock, `resources/versification/*`, `knowledge/references/sources/<id>.md`, the tests, the evaluation cases and the docs.
+
+#### A.1.5 Adding a cross-reference dataset
+
+Cross-references are pairs of passages (KJV numbering) stored in the index's `xrefs` table, each with the excerpt or concept that links them (`via`). Today they come from commentary `mentions` and from concept key passages (`store._links`). They cover about 26% of verses.
+
+A dataset such as the Treasury of Scripture Knowledge (its key, `tsk`, is already reserved in `ALLOWED_COMMENTARIES`; it was skipped by decision) would plug in like this:
+- pin or import it like a source (A.1.3 steps 3 and 5);
+- parse it into `(from, to)` OSIS pairs in KJV numbering, dropping pairs that fail `versification(KJV).check_passage`;
+- feed the pairs to `write_index`, next to the chunk-derived links, with `via` set to the source id (for example `tsk`), so the crossref route can say where each link comes from;
+- add a `Reference` concept for it, and bump `store.SCHEMA_VERSION` if the table changes;
+- measure: the share of verses with at least one link (`read_info(index_path()).meta["xrefs"]` gives the number of links) and the cross-reference cases in `eval/answers.yaml`.
+
+#### A.1.6 Replacing or removing a source
+
+Concepts cite sources by anchor, so a source can't simply disappear.
+
+1. Find what cites it: `grep -rl "references/sources/<id>.md" knowledge/`.
+2. For each concept, either re-source the claims (`okf touch` sends it back for review) or deprecate it (`okf deprecate`).
+3. Remove the source's registrations (A.1.3 steps 1–4, or A.1.4 steps 1–5), its lock entries and its `Reference` concept.
+4. Run `okf check` (0 errors), both evaluations and the full suite.
+5. Re-importing a *new version* of the same source is a replacement too. Changed excerpt ids or wording show up as `okf check` errors on the concepts that quote them.
