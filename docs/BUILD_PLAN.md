@@ -300,6 +300,8 @@ Who does what: **You** = human tasks, **Claude** = automated, **Gate** = your si
 | 8 | Docker, local run | Shared | 🟡 Built and tested from a clean checkout; your `docker compose up` on your machine closes it |
 | 9 | Knowledge-base maintenance (optional): report, gap log, proposals, weekly CI report | Claude proposes, you review | 🟡 Built and tested offline; proposals need your API key, and each goes through your review |
 
+Phase 9 is the last planned phase. Ongoing maintenance of the code follows [`ENGINEERING.md`](ENGINEERING.md).
+
 ## Decisions (Phase 0 additions, settled)
 
 1. **Reviewer id:** `human:dhnguyen` (`CORPUS_REVIEWER`).

@@ -9,7 +9,13 @@ from corpusstudy.commentary import CommentaryStore
 from corpusstudy.config import Translation, get_settings
 from corpusstudy.corpus import BibleText
 from corpusstudy.indexing.chunking import bible_chunks, commentary_chunks, knowledge_chunks
-from corpusstudy.indexing.store import fingerprint, index_path, read_info, write_index
+from corpusstudy.indexing.store import (
+    SCHEMA_VERSION,
+    fingerprint,
+    index_path,
+    read_info,
+    write_index,
+)
 from corpusstudy.ingest.commentary import COMMENTARY_SOURCES
 from corpusstudy.okf.bundle import load_bundle
 from corpusstudy.schemas import Chunk
@@ -44,8 +50,12 @@ def build_index(path: Path | None = None) -> dict:
 
 
 def index_status(path: Path | None = None) -> str:
-    """'missing', 'stale' (inputs changed since the build) or 'fresh'."""
+    """'missing', 'stale' (inputs or the index format changed since the build) or 'fresh'.
+    Bump `store.SCHEMA_VERSION` whenever chunking or the index tables change, so existing
+    indexes (a Docker volume, for example) are rebuilt on the next start."""
     info = read_info(path or index_path())
     if info is None:
         return "missing"
+    if info.meta.get("schema") != SCHEMA_VERSION:
+        return "stale"
     return "fresh" if info.meta.get("inputs") == fingerprint(input_files()) else "stale"

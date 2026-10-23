@@ -332,3 +332,12 @@ def test_retrieval_holdout_gates():
 
     s = gated_summary(REPO_ROOT / "eval" / "retrieval_holdout.yaml")
     assert s["gated"]["recall@10"] >= 0.9, s
+
+
+def test_an_index_from_another_schema_version_is_stale(world, monkeypatch):
+    from corpusstudy.indexing import build
+
+    monkeypatch.setattr(build, "fingerprint", lambda files: "test")  # inputs unchanged
+    assert build.index_status(world.path) == "fresh"
+    monkeypatch.setattr(build, "SCHEMA_VERSION", "999")  # chunking or tables changed
+    assert build.index_status(world.path) == "stale"

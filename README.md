@@ -71,7 +71,7 @@ eval/              retrieval and answer evaluation sets (tuned and held-out)
 knowledge/         OKF v0.2 bundle (index.md, log.md, books, themes, people,
                    doctrines, events, references/sources); see docs/KNOWLEDGE_FORMAT.md
 data/              downloaded texts and processed corpus (git-ignored)
-docs/              BUILD_PLAN.md, KNOWLEDGE_FORMAT.md
+docs/              BUILD_PLAN.md, KNOWLEDGE_FORMAT.md, RUNBOOK.md, ENGINEERING.md
 tests/
 ```
 
@@ -82,6 +82,8 @@ The schemas enforce these rules from the start:
 - The knowledge bundle conforms to OKF v0.2. Our own concepts also pass a stricter producer profile:
   - Every claim is footnoted to a `sources` entry that resolves to a real Bible passage or commentary excerpt.
   - Only concepts verified by a `human:` actor can be `stable`.
+
+Maintaining the code: [`docs/ENGINEERING.md`](docs/ENGINEERING.md) covers the architecture, the invariants, each subsystem, testing, CI and recipes for common changes.
 
 ## Run it with Docker
 
